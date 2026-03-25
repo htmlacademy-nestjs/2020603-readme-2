@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/users"
+    },
+    {
+      "path": "./apps/blog"
+    },
+    {
+      "path": "./apps/notify"
+    },
+    {
+      "path": "./apps/file-storage"
+    }
+  ]
+}
