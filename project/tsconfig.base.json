@@ -6,8 +6,9 @@
     "importHelpers": true,
     "isolatedModules": true,
     "lib": ["es2022"],
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
     "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
@@ -16,6 +17,9 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022",
-    "customConditions": ["@project/source"]
-  }
+    "paths": {
+      "@project/shared-types": ["libs/shared-types/src/index.ts"],
+      "@project/shared-errors": ["libs/shared-errors/src/index.ts"]
+    },
+  },
 }
