@@ -58,6 +58,14 @@ export class PostMemoryRepository implements PostRepository {
       .slice(0, 20);
   }
 
+  public async findRepost(originalPostId: string, authorId: string): Promise<PostEntity | null> {
+    return (
+      [...this.storage.values()].find(
+        (p) => p.isRepost && p.originalPostId === originalPostId && p.authorId === authorId,
+      ) ?? null
+    );
+  }
+
   public async save(entity: PostEntity): Promise<PostEntity> {
     entity.id = randomUUID();
     entity.createdAt = new Date();

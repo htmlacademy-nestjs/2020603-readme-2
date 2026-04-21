@@ -15,6 +15,7 @@ export interface PostRepository {
   findAll(query: PostQuery): Promise<PostEntity[]>;
   findDrafts(authorId: string): Promise<PostEntity[]>;
   findByTitle(title: string): Promise<PostEntity[]>;
+  findRepost(originalPostId: string, authorId: string): Promise<PostEntity | null>;
   save(entity: PostEntity): Promise<PostEntity>;
   update(entity: PostEntity): Promise<PostEntity>;
   deleteById(id: string): Promise<void>;

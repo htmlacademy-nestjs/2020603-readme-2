@@ -25,6 +25,7 @@
     "eslint.config.mjs"
   ],
   "references": [
-    { "path": "../../libs/shared-types" }
+    { "path": "../../libs/shared-types" },
+    { "path": "../../libs/shared-errors" },
   ]
 }

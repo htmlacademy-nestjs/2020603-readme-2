@@ -1,11 +1,8 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CommentMemoryRepository } from './comment-memory.repository';
 import { CommentEntity } from './comment.entity';
 import type { CreateCommentDto } from './dto/create-comment.dto';
+import {CommentNotFoundError} from './comment.errors';
 
 @Injectable()
 export class CommentService {
@@ -32,8 +29,8 @@ export class CommentService {
 
   public async deleteComment(id: string, authorId: string): Promise<void> {
     const comment = await this.commentRepository.findById(id);
-    if (!comment) throw new NotFoundException('Comment not found');
-    if (comment.authorId !== authorId) throw new ForbiddenException('Cannot delete another user\'s comment');
+    if (!comment) throw new CommentNotFoundError(id);
+    if (comment.authorId !== authorId) throw new CommentNotFoundError(id);
     await this.commentRepository.deleteById(id);
   }
 }

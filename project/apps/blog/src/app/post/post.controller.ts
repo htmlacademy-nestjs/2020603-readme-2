@@ -110,6 +110,8 @@ export class PostController {
   @Post(':id/repost')
   @ApiOperation({ summary: 'Репостнуть публикацию' })
   @ApiResponse({ status: HttpStatus.CREATED })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Публикация не найдена' })
+  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Репост уже был сделан ранее' })
   public async repost(@Param('id') id: string) {
     return this.postService.repost(id, STUB_USER_ID);
   }

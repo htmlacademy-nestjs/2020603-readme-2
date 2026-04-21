@@ -1,8 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PostStatus, PostType } from '@project/shared-types';
 import { PostMemoryRepository } from './post-memory.repository';
 import { PostEntity } from './post.entity';
@@ -12,7 +8,11 @@ import type { CreateTextPostDto } from './dto/create-text-post.dto';
 import type { CreateQuotePostDto } from './dto/create-quote-post.dto';
 import type { CreatePhotoPostDto } from './dto/create-photo-post.dto';
 import type { CreateLinkPostDto } from './dto/create-link-post.dto';
-import { POST_FORBIDDEN, POST_NOT_FOUND } from './post.constant';
+import {
+  PostNotFoundError,
+  PostEditForbiddenError,
+  PostAlreadyRepostedError,
+} from './post.errors';
 
 type CreatePostDto =
   | CreateVideoPostDto
@@ -66,7 +66,7 @@ export class PostService {
 
   public async findPost(id: string): Promise<PostEntity> {
     const post = await this.postRepository.findById(id);
-    if (!post) throw new NotFoundException(POST_NOT_FOUND);
+    if (!post) throw new PostNotFoundError(id);
     return post;
   }
 
@@ -88,7 +88,7 @@ export class PostService {
     authorId: string,
   ): Promise<PostEntity> {
     const post = await this.findPost(id);
-    if (post.authorId !== authorId) throw new ForbiddenException(POST_FORBIDDEN);
+    if (post.authorId !== authorId) throw new PostEditForbiddenError();
 
     Object.assign(post, {
       ...dto,
@@ -100,12 +100,18 @@ export class PostService {
 
   public async deletePost(id: string, authorId: string): Promise<void> {
     const post = await this.findPost(id);
-    if (post.authorId !== authorId) throw new ForbiddenException(POST_FORBIDDEN);
+    if (post.authorId !== authorId) throw new PostEditForbiddenError();
     await this.postRepository.deleteById(id);
   }
 
   public async repost(postId: string, authorId: string): Promise<PostEntity> {
     const original = await this.findPost(postId);
+
+    const existingRepost = await this.postRepository.findRepost(postId, authorId);
+    if (existingRepost) {
+      throw new PostAlreadyRepostedError(postId);
+    }
+
     const now = new Date();
 
     const repostedPost = new PostEntity({

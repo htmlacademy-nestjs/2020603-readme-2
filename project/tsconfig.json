@@ -7,6 +7,9 @@
       "path": "./libs/shared-types"
     },
     {
+      "path": "./libs/shared-errors"
+    },
+    {
       "path": "./apps/users"
     },
     {

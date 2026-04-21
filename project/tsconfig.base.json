@@ -19,6 +19,7 @@
     "target": "es2022",
     "paths": {
       "@project/shared-types": ["libs/shared-types/src/index.ts"],
+      "@project/shared-errors": ["libs/shared-errors/src/index.ts"]
     },
   },
 }
