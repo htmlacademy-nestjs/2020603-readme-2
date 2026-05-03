@@ -14,4 +14,14 @@ export class CommentEntity implements Comment {
     this.text = data.text;
     this.createdAt = data.createdAt;
   }
+
+  public toObject(): Comment {
+    return {
+      id: this.id,
+      postId: this.postId,
+      authorId: this.authorId,
+      text: this.text,
+      createdAt: this.createdAt,
+    };
+  }
 }

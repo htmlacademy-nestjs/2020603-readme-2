@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Post } from '@project/shared-types';
 import { PostStatus, PostType } from '@project/shared-types';
 import { PostMemoryRepository } from './post-memory.repository';
 import { PostEntity } from './post.entity';
@@ -25,7 +26,7 @@ type CreatePostDto =
 export class PostService {
   constructor(private readonly postRepository: PostMemoryRepository) {}
 
-  public async createPost(dto: CreatePostDto, authorId: string): Promise<PostEntity> {
+  public async createPost(dto: CreatePostDto, authorId: string): Promise<Post> {
     const now = new Date();
     const tags = this.normalizeTags(dto.tags ?? []);
 
@@ -61,24 +62,24 @@ export class PostService {
         break;
     }
 
-    return this.postRepository.save(post);
+    return this.postRepository.save(post.toObject());
   }
 
-  public async findPost(id: string): Promise<PostEntity> {
+  public async findPost(id: string): Promise<Post> {
     const post = await this.postRepository.findById(id);
     if (!post) throw new PostNotFoundError(id);
     return post;
   }
 
-  public async findAll(query: GetPostQueryDto): Promise<PostEntity[]> {
+  public async findAll(query: GetPostQueryDto): Promise<Post[]> {
     return this.postRepository.findAll(query);
   }
 
-  public async findDrafts(authorId: string): Promise<PostEntity[]> {
+  public async findDrafts(authorId: string): Promise<Post[]> {
     return this.postRepository.findDrafts(authorId);
   }
 
-  public async search(title: string): Promise<PostEntity[]> {
+  public async search(title: string): Promise<Post[]> {
     return this.postRepository.findByTitle(title);
   }
 
@@ -86,16 +87,17 @@ export class PostService {
     id: string,
     dto: Partial<CreatePostDto>,
     authorId: string,
-  ): Promise<PostEntity> {
+  ): Promise<Post> {
     const post = await this.findPost(id);
     if (post.authorId !== authorId) throw new PostEditForbiddenError();
 
-    Object.assign(post, {
+    const updated = new PostEntity({
+      ...post,
       ...dto,
       tags: dto.tags ? this.normalizeTags(dto.tags) : post.tags,
-    });
+    } as Post);
 
-    return this.postRepository.update(post);
+    return this.postRepository.update(updated.toObject());
   }
 
   public async deletePost(id: string, authorId: string): Promise<void> {
@@ -104,7 +106,7 @@ export class PostService {
     await this.postRepository.deleteById(id);
   }
 
-  public async repost(postId: string, authorId: string): Promise<PostEntity> {
+  public async repost(postId: string, authorId: string): Promise<Post> {
     const original = await this.findPost(postId);
 
     const existingRepost = await this.postRepository.findRepost(postId, authorId);
@@ -115,7 +117,7 @@ export class PostService {
     const now = new Date();
 
     const repostedPost = new PostEntity({
-      ...original.toObject(),
+      ...original,
       id: '',
       authorId,
       originalAuthorId: original.authorId,
@@ -125,9 +127,9 @@ export class PostService {
       createdAt: now,
       likesCount: 0,
       commentsCount: 0,
-    } as any);
+    });
 
-    return this.postRepository.save(repostedPost);
+    return this.postRepository.save(repostedPost.toObject());
   }
 
   private normalizeTags(tags: string[]): string[] {

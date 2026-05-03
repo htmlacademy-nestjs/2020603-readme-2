@@ -1,9 +1,9 @@
-import type { UserEntity } from './user.entity.js';
+import type { User } from '@project/shared-types';
 
 export interface UserRepository {
-  findById(id: string): Promise<UserEntity | null>;
-  findByEmail(email: string): Promise<UserEntity | null>;
-  save(entity: UserEntity): Promise<UserEntity>;
-  update(entity: UserEntity): Promise<UserEntity>;
+  findById(id: string): Promise<User | null>;
+  findByEmail(email: string): Promise<User | null>;
+  save(user: User): Promise<User>;
+  update(user: User): Promise<User>;
   deleteById(id: string): Promise<void>;
 }

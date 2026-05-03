@@ -13,8 +13,8 @@ import { AuthenticationService } from './authentication.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { ChangeUserPasswordDto } from './dto/change-user-password.dto';
-import { LoggedUserRdo} from './rdo/logged-user.rdo';
-import { UserRdo} from '../user/rdo/user.rdo';
+import { LoggedUserRdo } from './rdo/logged-user.rdo';
+import { UserRdo } from '../user/rdo/user.rdo';
 
 @ApiTags('authentication')
 @Controller('auth')
@@ -28,8 +28,7 @@ export class AuthenticationController {
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Пользователь успешно создан', type: UserRdo })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Пользователь с таким email уже существует' })
   public async register(@Body() dto: CreateUserDto): Promise<UserRdo> {
-    const userEntity = await this.authenticationService.register(dto);
-    const user = userEntity.toObject();
+    const user = await this.authenticationService.register(dto);
     return {
       id: user.id,
       email: user.email,
@@ -48,11 +47,11 @@ export class AuthenticationController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Неверный пароль' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Пользователь не найден' })
   public async login(@Body() dto: LoginUserDto): Promise<LoggedUserRdo> {
-    const userEntity = await this.authenticationService.verifyUser(dto);
+    const user = await this.authenticationService.verifyUser(dto);
     // TODO: Заменить на реальную генерацию JWT через @nestjs/jwt
     return {
-      id: userEntity.id,
-      email: userEntity.email,
+      id: user.id,
+      email: user.email,
       accessToken: 'jwt-token-placeholder',
     };
   }
@@ -62,8 +61,7 @@ export class AuthenticationController {
   @ApiResponse({ status: HttpStatus.OK, description: 'Информация о пользователе', type: UserRdo })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Пользователь не найден' })
   public async show(@Param('id') id: string): Promise<UserRdo> {
-    const userEntity = await this.authenticationService.getUser(id);
-    const user = userEntity.toObject();
+    const user = await this.authenticationService.getUser(id);
     return {
       id: user.id,
       email: user.email,
@@ -84,8 +82,7 @@ export class AuthenticationController {
     @Param('id') id: string,
     @Body() dto: ChangeUserPasswordDto,
   ): Promise<UserRdo> {
-    const userEntity = await this.authenticationService.changePassword(id, dto);
-    const user = userEntity.toObject();
+    const user = await this.authenticationService.changePassword(id, dto);
     return {
       id: user.id,
       email: user.email,

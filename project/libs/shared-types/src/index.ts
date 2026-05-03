@@ -8,7 +8,7 @@ export type {
   QuotePost,
   PhotoPost,
   LinkPost,
-} from './lib/post/post.interface.js';
+} from './lib/post/post.types';
 export type { Comment } from './lib/comment/comment.interface.js';
 export type { Like } from './lib/like/like.interface.js';
 export type { Subscription } from './lib/subscription/subscription.interface.js';

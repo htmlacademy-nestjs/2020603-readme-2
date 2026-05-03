@@ -63,7 +63,32 @@ export class PostEntity {
     }
   }
 
-  public toObject(): PostEntity {
-    return { ...this };
+  public toObject(): Post {
+    const base = {
+      id: this.id,
+      status: this.status,
+      authorId: this.authorId,
+      originalAuthorId: this.originalAuthorId,
+      isRepost: this.isRepost,
+      originalPostId: this.originalPostId,
+      tags: [...this.tags],
+      createdAt: this.createdAt,
+      publishedAt: this.publishedAt,
+      likesCount: this.likesCount,
+      commentsCount: this.commentsCount,
+    };
+
+    switch (this.type) {
+      case PostType.Video:
+        return { ...base, type: PostType.Video, title: this.title!, videoUrl: this.videoUrl! };
+      case PostType.Text:
+        return { ...base, type: PostType.Text, title: this.title!, announce: this.announce!, text: this.text! };
+      case PostType.Quote:
+        return { ...base, type: PostType.Quote, quoteText: this.quoteText!, quoteAuthor: this.quoteAuthor! };
+      case PostType.Photo:
+        return { ...base, type: PostType.Photo, photoUrl: this.photoUrl! };
+      case PostType.Link:
+        return { ...base, type: PostType.Link, link: this.link!, description: this.description };
+    }
   }
 }
