@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { Comment } from '@project/shared-types';
-import type { CommentRepository } from './comment.repository.interface.js';
 import { CommentEntity } from './comment.entity.js';
 import { DEFAULT_LIMIT } from './comment.constant.js';
 
 @Injectable()
-export class CommentMemoryRepository implements CommentRepository {
+export class CommentMemoryRepository {
   private readonly storage = new Map<string, CommentEntity>();
 
   public async findByPostId(postId: string, page = 1): Promise<Comment[]> {

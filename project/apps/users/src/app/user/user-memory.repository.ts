@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { User } from '@project/shared-types';
-import type { UserRepository } from './user.repository.interface.js';
 import { UserEntity } from './user.entity.js';
 
 @Injectable()
-export class UserMemoryRepository implements UserRepository {
+export class UserMemoryRepository {
   private readonly storage = new Map<string, UserEntity>();
 
   public async findById(id: string): Promise<User | null> {

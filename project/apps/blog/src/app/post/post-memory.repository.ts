@@ -1,13 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { Post } from '@project/shared-types';
+import type { Post, PostType } from '@project/shared-types';
 import { PostStatus } from '@project/shared-types';
-import type { PostRepository, PostQuery } from './post.repository.interface.js';
 import { PostEntity } from './post.entity.js';
 import { DEFAULT_LIMIT } from './post.constant.js';
 
+export type PostSortBy = 'publishedAt' | 'likes' | 'comments';
+
+export type PostQuery = {
+  limit?: number;
+  page?: number;
+  sortBy?: PostSortBy;
+  type?: PostType;
+  tag?: string;
+  authorId?: string;
+};
+
 @Injectable()
-export class PostMemoryRepository implements PostRepository {
+export class PostMemoryRepository {
   private readonly storage = new Map<string, PostEntity>();
 
   public async findById(id: string): Promise<Post | null> {
