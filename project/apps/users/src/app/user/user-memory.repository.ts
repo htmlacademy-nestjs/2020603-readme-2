@@ -1,38 +1,34 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { User } from '@project/shared-types';
-import { UserEntity } from './user.entity.js';
+import { User } from '@project/shared-types';
 
 @Injectable()
 export class UserMemoryRepository {
-  private readonly storage = new Map<string, UserEntity>();
+  private readonly storage = new Map<string, User>();
 
   public async findById(id: string): Promise<User | null> {
-    const entity = this.storage.get(id);
-    return entity ? entity.toObject() : null;
+    return this.storage.get(id) ?? null;
   }
 
   public async findByEmail(email: string): Promise<User | null> {
-    for (const entity of this.storage.values()) {
-      if (entity.email === email) {
-        return entity.toObject();
+    for (const user of this.storage.values()) {
+      if (user.email === email) {
+        return user;
       }
     }
     return null;
   }
 
   public async save(user: User): Promise<User> {
-    const entity = new UserEntity(user);
-    entity.id = randomUUID();
-    entity.createdAt = new Date();
-    this.storage.set(entity.id, entity);
-    return entity.toObject();
+    user.id = randomUUID();
+    user.createdAt = new Date();
+    this.storage.set(user.id, user);
+    return user;
   }
 
   public async update(user: User): Promise<User> {
-    const entity = new UserEntity(user);
-    this.storage.set(entity.id, entity);
-    return entity.toObject();
+    this.storage.set(user.id, user);
+    return user;
   }
 
   public async deleteById(id: string): Promise<void> {

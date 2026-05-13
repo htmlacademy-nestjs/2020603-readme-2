@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { Post, PostType } from '@project/shared-types';
 import { PostStatus } from '@project/shared-types';
-import { PostEntity } from './post.entity.js';
 import { DEFAULT_LIMIT } from './post.constant.js';
 
 export type PostSortBy = 'publishedAt' | 'likes' | 'comments';
@@ -18,11 +17,10 @@ export type PostQuery = {
 
 @Injectable()
 export class PostMemoryRepository {
-  private readonly storage = new Map<string, PostEntity>();
+  private readonly storage = new Map<string, Post>();
 
   public async findById(id: string): Promise<Post | null> {
-    const entity = this.storage.get(id);
-    return entity ? entity.toObject() : null;
+    return this.storage.get(id) ?? null;
   }
 
   public async findAll(query: PostQuery): Promise<Post[]> {
@@ -50,13 +48,13 @@ export class PostMemoryRepository {
     });
 
     const offset = (page - 1) * limit;
-    return posts.slice(offset, offset + limit).map((entity) => entity.toObject());
+    return posts.slice(offset, offset + limit);
   }
 
   public async findDrafts(authorId: string): Promise<Post[]> {
-    return [...this.storage.values()]
-      .filter((p) => p.authorId === authorId && p.status === PostStatus.Draft)
-      .map((entity) => entity.toObject());
+    return [...this.storage.values()].filter(
+      (p) => p.authorId === authorId && p.status === PostStatus.Draft,
+    );
   }
 
   public async findByTitle(title: string): Promise<Post[]> {
@@ -65,32 +63,31 @@ export class PostMemoryRepository {
       .filter(
         (p) =>
           p.status === PostStatus.Published &&
-          p.title?.toLowerCase().includes(titleLower),
+          'title' in p &&
+          typeof p.title === 'string' &&
+          p.title.toLowerCase().includes(titleLower),
       )
-      .slice(0, 20)
-      .map((entity) => entity.toObject());
+      .slice(0, 20);
   }
 
   public async findRepost(originalPostId: string, authorId: string): Promise<Post | null> {
     const found = [...this.storage.values()].find(
       (p) => p.isRepost && p.originalPostId === originalPostId && p.authorId === authorId,
     );
-    return found ? found.toObject() : null;
+    return found ?? null;
   }
 
   public async save(post: Post): Promise<Post> {
-    const entity = new PostEntity(post);
-    entity.id = randomUUID();
-    entity.createdAt = new Date();
-    entity.publishedAt = new Date();
-    this.storage.set(entity.id, entity);
-    return entity.toObject();
+    post.id = randomUUID();
+    post.createdAt = new Date();
+    post.publishedAt = new Date();
+    this.storage.set(post.id, post);
+    return post;
   }
 
   public async update(post: Post): Promise<Post> {
-    const entity = new PostEntity(post);
-    this.storage.set(entity.id, entity);
-    return entity.toObject();
+    this.storage.set(post.id, post);
+    return post;
   }
 
   public async deleteById(id: string): Promise<void> {

@@ -4,9 +4,9 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { User } from '@project/shared-types';
-import { UserEntity } from '../user/user.entity';
+import { User } from '@project/shared-types';
 import { UserMemoryRepository } from '../user/user-memory.repository';
+import { PasswordHasher } from './password.hasher';
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { LoginUserDto } from './dto/login-user.dto';
 import type { ChangeUserPasswordDto } from './dto/change-user-password.dto';
@@ -20,6 +20,7 @@ import {
 export class AuthenticationService {
   constructor(
     private readonly userRepository: UserMemoryRepository,
+    private readonly passwordHasher: PasswordHasher,
   ) {}
 
   public async register(dto: CreateUserDto): Promise<User> {
@@ -28,17 +29,15 @@ export class AuthenticationService {
       throw new ConflictException(AUTH_USER_EXISTS);
     }
 
-    const userEntity = new UserEntity({
-      id: '',
-      email: dto.email,
-      name: dto.name,
-      passwordHash: '',
-      avatarUrl: dto.avatarUrl,
-      createdAt: new Date(),
-    });
+    const user = new User();
+    user.id = '';
+    user.email = dto.email;
+    user.name = dto.name;
+    user.avatarUrl = dto.avatarUrl;
+    user.createdAt = new Date();
+    user.passwordHash = await this.passwordHasher.hash(dto.password);
 
-    await userEntity.setPassword(dto.password);
-    return this.userRepository.save(userEntity.toObject());
+    return this.userRepository.save(user);
   }
 
   public async verifyUser(dto: LoginUserDto): Promise<User> {
@@ -47,8 +46,10 @@ export class AuthenticationService {
       throw new NotFoundException(AUTH_USER_NOT_FOUND);
     }
 
-    const userEntity = new UserEntity(user);
-    const isPasswordValid = await userEntity.comparePassword(dto.password);
+    const isPasswordValid = await this.passwordHasher.compare(
+      dto.password,
+      user.passwordHash,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException(AUTH_USER_PASSWORD_WRONG);
     }
@@ -66,14 +67,16 @@ export class AuthenticationService {
 
   public async changePassword(id: string, dto: ChangeUserPasswordDto): Promise<User> {
     const user = await this.getUser(id);
-    const userEntity = new UserEntity(user);
 
-    const isPasswordValid = await userEntity.comparePassword(dto.currentPassword);
+    const isPasswordValid = await this.passwordHasher.compare(
+      dto.currentPassword,
+      user.passwordHash,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException(AUTH_USER_PASSWORD_WRONG);
     }
 
-    await userEntity.setPassword(dto.newPassword);
-    return this.userRepository.update(userEntity.toObject());
+    user.passwordHash = await this.passwordHasher.hash(dto.newPassword);
+    return this.userRepository.update(user);
   }
 }

@@ -1,8 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import {
+  LinkPost,
+  PhotoPost,
+  PostStatus,
+  PostType,
+  QuotePost,
+  TextPost,
+  VideoPost,
+} from '@project/shared-types';
 import type { Post } from '@project/shared-types';
-import { PostStatus, PostType } from '@project/shared-types';
 import { PostMemoryRepository } from './post-memory.repository';
-import { PostEntity } from './post.entity';
 import type { GetPostQueryDto } from './dto/get-post-query.dto';
 import type { CreateVideoPostDto } from './dto/create-video-post.dto';
 import type { CreateTextPostDto } from './dto/create-text-post.dto';
@@ -30,39 +37,18 @@ export class PostService {
     const now = new Date();
     const tags = this.normalizeTags(dto.tags ?? []);
 
-    const base = {
-      id: '',
-      status: PostStatus.Published,
-      authorId,
-      isRepost: false,
-      tags,
-      createdAt: now,
-      publishedAt: now,
-      likesCount: 0,
-      commentsCount: 0,
-    };
+    const post = this.buildPostByDto(dto);
+    post.id = '';
+    post.status = PostStatus.Published;
+    post.authorId = authorId;
+    post.isRepost = false;
+    post.tags = tags;
+    post.createdAt = now;
+    post.publishedAt = now;
+    post.likesCount = 0;
+    post.commentsCount = 0;
 
-    let post: PostEntity;
-
-    switch (dto.type) {
-      case PostType.Video:
-        post = new PostEntity({ ...base, type: PostType.Video, title: dto.title, videoUrl: dto.videoUrl });
-        break;
-      case PostType.Text:
-        post = new PostEntity({ ...base, type: PostType.Text, title: dto.title, announce: dto.announce, text: dto.text });
-        break;
-      case PostType.Quote:
-        post = new PostEntity({ ...base, type: PostType.Quote, quoteText: dto.quoteText, quoteAuthor: dto.quoteAuthor });
-        break;
-      case PostType.Photo:
-        post = new PostEntity({ ...base, type: PostType.Photo, photoUrl: dto.photoUrl });
-        break;
-      case PostType.Link:
-        post = new PostEntity({ ...base, type: PostType.Link, link: dto.link, description: dto.description });
-        break;
-    }
-
-    return this.postRepository.save(post.toObject());
+    return this.postRepository.save(post);
   }
 
   public async findPost(id: string): Promise<Post> {
@@ -91,13 +77,11 @@ export class PostService {
     const post = await this.findPost(id);
     if (post.authorId !== authorId) throw new PostEditForbiddenError();
 
-    const updated = new PostEntity({
-      ...post,
-      ...dto,
+    Object.assign(post, dto, {
       tags: dto.tags ? this.normalizeTags(dto.tags) : post.tags,
-    } as Post);
+    });
 
-    return this.postRepository.update(updated.toObject());
+    return this.postRepository.update(post);
   }
 
   public async deletePost(id: string, authorId: string): Promise<void> {
@@ -116,23 +100,71 @@ export class PostService {
 
     const now = new Date();
 
-    const repostedPost = new PostEntity({
-      ...original,
-      id: '',
-      authorId,
-      originalAuthorId: original.authorId,
-      originalPostId: original.id,
-      isRepost: true,
-      publishedAt: now,
-      createdAt: now,
-      likesCount: 0,
-      commentsCount: 0,
-    });
+    const reposted = this.cloneByType(original);
+    reposted.id = '';
+    reposted.authorId = authorId;
+    reposted.originalAuthorId = original.authorId;
+    reposted.originalPostId = original.id;
+    reposted.isRepost = true;
+    reposted.publishedAt = now;
+    reposted.createdAt = now;
+    reposted.likesCount = 0;
+    reposted.commentsCount = 0;
 
-    return this.postRepository.save(repostedPost.toObject());
+    return this.postRepository.save(reposted);
   }
 
   private normalizeTags(tags: string[]): string[] {
     return [...new Set(tags.map((tag) => tag.toLowerCase()))];
+  }
+
+  private buildPostByDto(dto: CreatePostDto): Post {
+    switch (dto.type) {
+      case PostType.Video: {
+        const post = new VideoPost();
+        post.title = dto.title;
+        post.videoUrl = dto.videoUrl;
+        return post;
+      }
+      case PostType.Text: {
+        const post = new TextPost();
+        post.title = dto.title;
+        post.announce = dto.announce;
+        post.text = dto.text;
+        return post;
+      }
+      case PostType.Quote: {
+        const post = new QuotePost();
+        post.quoteText = dto.quoteText;
+        post.quoteAuthor = dto.quoteAuthor;
+        return post;
+      }
+      case PostType.Photo: {
+        const post = new PhotoPost();
+        post.photoUrl = dto.photoUrl;
+        return post;
+      }
+      case PostType.Link: {
+        const post = new LinkPost();
+        post.link = dto.link;
+        post.description = dto.description;
+        return post;
+      }
+    }
+  }
+
+  private cloneByType(source: Post): Post {
+    switch (source.type) {
+      case PostType.Video:
+        return Object.assign(new VideoPost(), source);
+      case PostType.Text:
+        return Object.assign(new TextPost(), source);
+      case PostType.Quote:
+        return Object.assign(new QuotePost(), source);
+      case PostType.Photo:
+        return Object.assign(new PhotoPost(), source);
+      case PostType.Link:
+        return Object.assign(new LinkPost(), source);
+    }
   }
 }

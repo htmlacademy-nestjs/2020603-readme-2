@@ -1,30 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { Comment } from '@project/shared-types';
-import { CommentEntity } from './comment.entity.js';
+import { Comment } from '@project/shared-types';
 import { DEFAULT_LIMIT } from './comment.constant.js';
 
 @Injectable()
 export class CommentMemoryRepository {
-  private readonly storage = new Map<string, CommentEntity>();
+  private readonly storage = new Map<string, Comment>();
 
   public async findByPostId(postId: string, page = 1): Promise<Comment[]> {
     const all = [...this.storage.values()].filter((c) => c.postId === postId);
     const offset = (page - 1) * DEFAULT_LIMIT;
-    return all.slice(offset, offset + DEFAULT_LIMIT).map((entity) => entity.toObject());
+    return all.slice(offset, offset + DEFAULT_LIMIT);
   }
 
   public async findById(id: string): Promise<Comment | null> {
-    const entity = this.storage.get(id);
-    return entity ? entity.toObject() : null;
+    return this.storage.get(id) ?? null;
   }
 
   public async save(comment: Comment): Promise<Comment> {
-    const entity = new CommentEntity(comment);
-    entity.id = randomUUID();
-    entity.createdAt = new Date();
-    this.storage.set(entity.id, entity);
-    return entity.toObject();
+    comment.id = randomUUID();
+    comment.createdAt = new Date();
+    this.storage.set(comment.id, comment);
+    return comment;
   }
 
   public async deleteById(id: string): Promise<void> {
