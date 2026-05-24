@@ -2,7 +2,10 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
 
 export class UserRdo {
-  @ApiProperty({ description: 'Идентификатор пользователя' })
+  @ApiProperty({
+    description: 'Идентификатор пользователя (MongoDB ObjectId)',
+    example: '6707cf8c1234567890abcdef',
+  })
   @Expose()
   public id!: string;
 

@@ -10,7 +10,7 @@
     "target": "es2021",
     "composite": false,
     "emitDeclarationOnly": false,
-    "declarationMap": false,
+    "declarationMap": false
   },
   "include": ["src/**/*.ts"],
   "exclude": [
@@ -22,10 +22,7 @@
     "src/**/*.test.ts",
     "eslint.config.js",
     "eslint.config.cjs",
-    "eslint.config.mjs",
+    "eslint.config.mjs"
   ],
-  "references": [
-    { "path": "../../libs/shared-types" },
-    { "path": "../../libs/shared-errors" },
-  ],
+  "references": []
 }

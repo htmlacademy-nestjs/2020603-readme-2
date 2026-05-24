@@ -21,6 +21,9 @@ services:
     env_file:
       - .env
     environment:
+      # Перебиваем PORT из .env (там 3001 для Nest-сервиса),
+      # чтобы mongo-express слушал 8081 внутри контейнера.
+      PORT: 8081
       ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USER}
       ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD}
       ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_USER}

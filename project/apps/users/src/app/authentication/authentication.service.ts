@@ -4,8 +4,8 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { User } from '@project/shared-types';
-import { UserMemoryRepository } from '../user/user-memory.repository';
+import { UserRepository } from '../user/user.repository';
+import { UserDocument } from '../user/user.schema';
 import { PasswordHasher } from './password.hasher';
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { LoginUserDto } from './dto/login-user.dto';
@@ -19,28 +19,27 @@ import {
 @Injectable()
 export class AuthenticationService {
   constructor(
-    private readonly userRepository: UserMemoryRepository,
+    private readonly userRepository: UserRepository,
     private readonly passwordHasher: PasswordHasher,
   ) {}
 
-  public async register(dto: CreateUserDto): Promise<User> {
+  public async register(dto: CreateUserDto): Promise<UserDocument> {
     const existingUser = await this.userRepository.findByEmail(dto.email);
     if (existingUser) {
       throw new ConflictException(AUTH_USER_EXISTS);
     }
 
-    const user = new User();
-    user.id = '';
-    user.email = dto.email;
-    user.name = dto.name;
-    user.avatarUrl = dto.avatarUrl;
-    user.createdAt = new Date();
-    user.passwordHash = await this.passwordHasher.hash(dto.password);
+    const passwordHash = await this.passwordHasher.hash(dto.password);
 
-    return this.userRepository.save(user);
+    return this.userRepository.create({
+      email: dto.email,
+      name: dto.name,
+      avatarUrl: dto.avatarUrl,
+      passwordHash,
+    });
   }
 
-  public async verifyUser(dto: LoginUserDto): Promise<User> {
+  public async verifyUser(dto: LoginUserDto): Promise<UserDocument> {
     const user = await this.userRepository.findByEmail(dto.email);
     if (!user) {
       throw new NotFoundException(AUTH_USER_NOT_FOUND);
@@ -57,7 +56,7 @@ export class AuthenticationService {
     return user;
   }
 
-  public async getUser(id: string): Promise<User> {
+  public async getUser(id: string): Promise<UserDocument> {
     const user = await this.userRepository.findById(id);
     if (!user) {
       throw new NotFoundException(AUTH_USER_NOT_FOUND);
@@ -65,7 +64,10 @@ export class AuthenticationService {
     return user;
   }
 
-  public async changePassword(id: string, dto: ChangeUserPasswordDto): Promise<User> {
+  public async changePassword(
+    id: string,
+    dto: ChangeUserPasswordDto,
+  ): Promise<UserDocument> {
     const user = await this.getUser(id);
 
     const isPasswordValid = await this.passwordHasher.compare(
@@ -76,7 +78,14 @@ export class AuthenticationService {
       throw new UnauthorizedException(AUTH_USER_PASSWORD_WRONG);
     }
 
-    user.passwordHash = await this.passwordHasher.hash(dto.newPassword);
-    return this.userRepository.update(user);
+    const passwordHash = await this.passwordHasher.hash(dto.newPassword);
+    const updated = await this.userRepository.updatePasswordHash(
+      id,
+      passwordHash,
+    );
+    if (!updated) {
+      throw new NotFoundException(AUTH_USER_NOT_FOUND);
+    }
+    return updated;
   }
 }
