@@ -9,5 +9,10 @@
 .DS_Store
 coverage
 *.log
+.env
 
 .nx/
+.junie/
+
+# MongoDB data directories (docker volumes from compose.yaml)
+**/mongodb/
