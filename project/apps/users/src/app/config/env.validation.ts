@@ -18,12 +18,12 @@ export enum Environment {
 
 export class EnvironmentVariables {
   @IsEnum(Environment)
-  public NODE_ENV: Environment = Environment.Development;
+  public APPLICATION_NODE_ENV: Environment = Environment.Development;
 
   @IsInt()
   @Min(0)
   @Max(65535)
-  public PORT: number = 3001;
+  public APPLICATION_PORT: number = 3001;
 
   @IsString()
   @MinLength(1)
