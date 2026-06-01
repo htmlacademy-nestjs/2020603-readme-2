@@ -4,7 +4,8 @@
 /lib/
 /dist/
 /docs/
-.idea/*
+.idea/
+.qwen/
 
 .DS_Store
 coverage
