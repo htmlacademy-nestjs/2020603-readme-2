@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
 import {
   ApiOperation,
   ApiParam,
@@ -20,7 +21,6 @@ import { LoginUserDto } from './dto/login-user.dto';
 import { ChangeUserPasswordDto } from './dto/change-user-password.dto';
 import { LoggedUserRdo } from './rdo/logged-user.rdo';
 import { UserRdo } from '../user/rdo/user.rdo';
-import { UserDocument } from '../user/user.schema';
 
 @ApiTags('authentication')
 @Controller('auth')
@@ -29,18 +29,6 @@ export class AuthenticationController {
     private readonly authenticationService: AuthenticationService,
   ) {}
 
-  private toUserRdo(user: UserDocument): UserRdo {
-    return {
-      id: user._id.toString(),
-      email: user.email,
-      name: user.name,
-      avatarUrl: user.avatarUrl,
-      createdAt: user.createdAt,
-      postsCount: 0,        // TODO: запрос к Blog Service через API Gateway
-      subscribersCount: 0,  // TODO: подсчёт из коллекции подписок
-    };
-  }
-
   @Post('register')
   @ApiOperation({ summary: 'Регистрация нового пользователя' })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Пользователь успешно создан', type: UserRdo })
@@ -48,7 +36,7 @@ export class AuthenticationController {
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Пользователь с таким email уже существует' })
   public async register(@Body() dto: CreateUserDto): Promise<UserRdo> {
     const user = await this.authenticationService.register(dto);
-    return this.toUserRdo(user);
+    return plainToInstance(UserRdo, user, { excludeExtraneousValues: true });
   }
 
   @Post('login')
@@ -61,7 +49,7 @@ export class AuthenticationController {
     const user = await this.authenticationService.verifyUser(dto);
     // TODO: Заменить на реальную генерацию JWT через @nestjs/jwt
     return {
-      id: user._id.toString(),
+      id: user.id,
       email: user.email,
       accessToken: 'jwt-token-placeholder',
     };
@@ -69,18 +57,18 @@ export class AuthenticationController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Получить информацию о пользователе' })
-  @ApiParam({ name: 'id', description: 'MongoDB ObjectId пользователя', example: '6707cf8c1234567890abcdef' })
+  @ApiParam({ name: 'id', description: 'Идентификатор пользователя', example: '6707cf8c1234567890abcdef' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Информация о пользователе', type: UserRdo })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Пользователь не найден' })
   public async show(@Param('id') id: string): Promise<UserRdo> {
     const user = await this.authenticationService.getUser(id);
-    return this.toUserRdo(user);
+    return plainToInstance(UserRdo, user, { excludeExtraneousValues: true });
   }
 
   @Patch(':id/password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Смена пароля пользователя' })
-  @ApiParam({ name: 'id', description: 'MongoDB ObjectId пользователя', example: '6707cf8c1234567890abcdef' })
+  @ApiParam({ name: 'id', description: 'Идентификатор пользователя', example: '6707cf8c1234567890abcdef' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Пароль успешно изменён', type: UserRdo })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Текущий пароль неверен' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Пользователь не найден' })
@@ -89,6 +77,6 @@ export class AuthenticationController {
     @Body() dto: ChangeUserPasswordDto,
   ): Promise<UserRdo> {
     const user = await this.authenticationService.changePassword(id, dto);
-    return this.toUserRdo(user);
+    return plainToInstance(UserRdo, user, { excludeExtraneousValues: true });
   }
 }

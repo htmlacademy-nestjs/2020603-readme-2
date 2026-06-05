@@ -1,4 +1,3 @@
-import { plainToInstance } from 'class-transformer';
 import {
   IsEnum,
   IsInt,
@@ -7,8 +6,8 @@ import {
   MaxLength,
   Min,
   MinLength,
-  validateSync,
 } from 'class-validator';
+import { validateEnvironment } from '@project/shared-config';
 
 export enum Environment {
   Development = 'development',
@@ -55,22 +54,5 @@ export class EnvironmentVariables {
 export function validateEnv(
   config: Record<string, unknown>,
 ): EnvironmentVariables {
-  const validatedConfig = plainToInstance(EnvironmentVariables, config, {
-    enableImplicitConversion: true,
-  });
-
-  const errors = validateSync(validatedConfig, {
-    skipMissingProperties: false,
-    forbidUnknownValues: false,
-  });
-
-  if (errors.length > 0) {
-    throw new Error(
-      `Invalid environment configuration:\n${errors
-        .map((err) => `  - ${err.toString()}`)
-        .join('\n')}`,
-    );
-  }
-
-  return validatedConfig;
+  return validateEnvironment(EnvironmentVariables, config);
 }

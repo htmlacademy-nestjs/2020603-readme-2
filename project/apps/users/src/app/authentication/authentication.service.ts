@@ -4,8 +4,8 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { User } from '@project/shared-types';
 import { UserRepository } from '../user/user.repository';
-import { UserDocument } from '../user/user.schema';
 import { PasswordHasher } from './password.hasher';
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { LoginUserDto } from './dto/login-user.dto';
@@ -23,7 +23,7 @@ export class AuthenticationService {
     private readonly passwordHasher: PasswordHasher,
   ) {}
 
-  public async register(dto: CreateUserDto): Promise<UserDocument> {
+  public async register(dto: CreateUserDto): Promise<User> {
     const existingUser = await this.userRepository.findByEmail(dto.email);
     if (existingUser) {
       throw new ConflictException(AUTH_USER_EXISTS);
@@ -39,7 +39,7 @@ export class AuthenticationService {
     });
   }
 
-  public async verifyUser(dto: LoginUserDto): Promise<UserDocument> {
+  public async verifyUser(dto: LoginUserDto): Promise<User> {
     const user = await this.userRepository.findByEmail(dto.email);
     if (!user) {
       throw new NotFoundException(AUTH_USER_NOT_FOUND);
@@ -56,7 +56,7 @@ export class AuthenticationService {
     return user;
   }
 
-  public async getUser(id: string): Promise<UserDocument> {
+  public async getUser(id: string): Promise<User> {
     const user = await this.userRepository.findById(id);
     if (!user) {
       throw new NotFoundException(AUTH_USER_NOT_FOUND);
@@ -67,7 +67,7 @@ export class AuthenticationService {
   public async changePassword(
     id: string,
     dto: ChangeUserPasswordDto,
-  ): Promise<UserDocument> {
+  ): Promise<User> {
     const user = await this.getUser(id);
 
     const isPasswordValid = await this.passwordHasher.compare(

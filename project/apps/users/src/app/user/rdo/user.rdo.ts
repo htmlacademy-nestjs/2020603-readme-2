@@ -3,7 +3,7 @@ import { Expose } from 'class-transformer';
 
 export class UserRdo {
   @ApiProperty({
-    description: 'Идентификатор пользователя (MongoDB ObjectId)',
+    description: 'Идентификатор пользователя',
     example: '6707cf8c1234567890abcdef',
   })
   @Expose()
