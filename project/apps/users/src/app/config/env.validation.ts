@@ -22,7 +22,7 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(0)
   @Max(65535)
-  public APPLICATION_PORT: number = 3001;
+  public APPLICATION_PORT = 3001;
 
   @IsString()
   @MinLength(1)

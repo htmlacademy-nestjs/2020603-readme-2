@@ -2,6 +2,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { DomainExceptionFilter } from '@project/shared-errors';
 import { AppModule } from './app/app.module';
 
 async function bootstrap() {
@@ -9,6 +10,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+  app.useGlobalFilters(new DomainExceptionFilter());
 
   const config = new DocumentBuilder()
     .setTitle('Readme — Users Service')

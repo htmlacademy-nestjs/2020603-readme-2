@@ -1,9 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { User } from '@project/shared-types';
 import { UserRepository } from '../user/user.repository';
 import { PasswordHasher } from './password.hasher';
@@ -11,10 +6,10 @@ import type { CreateUserDto } from './dto/create-user.dto';
 import type { LoginUserDto } from './dto/login-user.dto';
 import type { ChangeUserPasswordDto } from './dto/change-user-password.dto';
 import {
-  AUTH_USER_EXISTS,
-  AUTH_USER_NOT_FOUND,
-  AUTH_USER_PASSWORD_WRONG,
-} from './authentication.constant';
+  InvalidPasswordError,
+  UserAlreadyExistsError,
+  UserNotFoundError,
+} from './authentication.errors';
 
 @Injectable()
 export class AuthenticationService {
@@ -26,7 +21,7 @@ export class AuthenticationService {
   public async register(dto: CreateUserDto): Promise<User> {
     const existingUser = await this.userRepository.findByEmail(dto.email);
     if (existingUser) {
-      throw new ConflictException(AUTH_USER_EXISTS);
+      throw new UserAlreadyExistsError(dto.email);
     }
 
     const passwordHash = await this.passwordHasher.hash(dto.password);
@@ -42,7 +37,7 @@ export class AuthenticationService {
   public async verifyUser(dto: LoginUserDto): Promise<User> {
     const user = await this.userRepository.findByEmail(dto.email);
     if (!user) {
-      throw new NotFoundException(AUTH_USER_NOT_FOUND);
+      throw new UserNotFoundError();
     }
 
     const isPasswordValid = await this.passwordHasher.compare(
@@ -50,7 +45,7 @@ export class AuthenticationService {
       user.passwordHash,
     );
     if (!isPasswordValid) {
-      throw new UnauthorizedException(AUTH_USER_PASSWORD_WRONG);
+      throw new InvalidPasswordError();
     }
 
     return user;
@@ -59,7 +54,7 @@ export class AuthenticationService {
   public async getUser(id: string): Promise<User> {
     const user = await this.userRepository.findById(id);
     if (!user) {
-      throw new NotFoundException(AUTH_USER_NOT_FOUND);
+      throw new UserNotFoundError();
     }
     return user;
   }
@@ -75,7 +70,7 @@ export class AuthenticationService {
       user.passwordHash,
     );
     if (!isPasswordValid) {
-      throw new UnauthorizedException(AUTH_USER_PASSWORD_WRONG);
+      throw new InvalidPasswordError();
     }
 
     const passwordHash = await this.passwordHasher.hash(dto.newPassword);
@@ -84,7 +79,7 @@ export class AuthenticationService {
       passwordHash,
     );
     if (!updated) {
-      throw new NotFoundException(AUTH_USER_NOT_FOUND);
+      throw new UserNotFoundError();
     }
     return updated;
   }
