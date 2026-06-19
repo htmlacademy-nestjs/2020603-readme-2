@@ -47,7 +47,7 @@ HTML Academy "Readme" course project — NestJS 11 + Nx 22 monorepo (ESM, `"type
 
 ## Don't copy blindly (current gaps)
 - `users` `login()` returns a hardcoded `'jwt-token-placeholder'` — JWT is not implemented yet.
-- Several 0-byte stub files exist (e.g. `apps/users/src/app/user/dto/update-user.dto.ts`, blog `*.module.ts`, blog `like/like.entity.ts`).
+- Several 0-byte stub files exist (e.g. `apps/users/src/app/user/dto/update-user.dto.ts`, blog `*.module.ts`).
 
 ## Tests
 - Jest 30 via SWC; `*.spec.ts` co-located with a source. Per app: `jest.config.cts` reads `.spec.swcrc` and uses the root `jest.preset.cjs`; root `jest.config.ts` aggregates projects via `getJestProjectsAsync()`.
