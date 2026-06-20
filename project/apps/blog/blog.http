@@ -43,7 +43,7 @@ DELETE {{host}}/posts/{{createPost.response.body.id}}
 
 ### CREATE: комментарий к посту (запоминаем как createComment)
 # @name createComment
-POST {{host}}/posts/{{createPost.response.body.$.id}}/comments
+POST {{host}}/posts/{{createPost.response.body.id}}/comments
 Content-Type: application/json
 
 {
@@ -51,20 +51,20 @@ Content-Type: application/json
 }
 
 ### READ: комментарии к посту
-GET {{host}}/posts/{{createPost.response.body.$.id}}/comments
+GET {{host}}/posts/{{createPost.response.body.id}}/comments
 
 ### DELETE: удалить комментарий (по id из createComment)
-DELETE {{host}}/posts/{{createPost.response.body.$.id}}/comments/{{createComment.response.body.$.id}}
+DELETE {{host}}/posts/{{createPost.response.body.id}}/comments/{{createComment.response.body.id}}
 
 ############################################################
 # LIKES — create / delete (для поста createPost)
 ############################################################
 
 ### CREATE: поставить лайк
-POST {{host}}/posts/{{createPost.response.body.$.id}}/likes
+POST {{host}}/posts/{{createPost.response.body.id}}/likes
 
 ### DELETE: убрать лайк
-DELETE {{host}}/posts/{{createPost.response.body.$.id}}/likes
+DELETE {{host}}/posts/{{createPost.response.body.id}}/likes
 
 ############################################################
 # Запасной вариант — ручная подстановка id
