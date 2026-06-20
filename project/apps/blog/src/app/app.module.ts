@@ -1,23 +1,24 @@
 import { Module } from '@nestjs/common';
-import { PostController } from './post/post.controller';
-import { PostService } from './post/post.service';
-import { PostMemoryRepository } from './post/post-memory.repository';
-import { CommentController } from './comment/comment.controller';
-import { CommentService } from './comment/comment.service';
-import { CommentMemoryRepository } from './comment/comment-memory.repository';
-import { LikeController } from './like/like.controller';
-import { LikeService } from './like/like.service';
-import { LikeMemoryRepository } from './like/like-memory.repository';
+import { ConfigModule } from '@nestjs/config';
+import { appConfig, postgresConfig, validateEnv } from './config';
+import { PrismaModule } from './prisma/prisma.module';
+import { PostModule } from './post/post.module';
+import { CommentModule } from './comment/comment.module';
+import { LikeModule } from './like/like.module';
 
 @Module({
-  controllers: [PostController, CommentController, LikeController],
-  providers: [
-    PostService,
-    PostMemoryRepository,
-    CommentService,
-    CommentMemoryRepository,
-    LikeService,
-    LikeMemoryRepository,
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      cache: true,
+      envFilePath: 'apps/blog/.env',
+      load: [appConfig, postgresConfig],
+      validate: validateEnv,
+    }),
+    PrismaModule,
+    PostModule,
+    CommentModule,
+    LikeModule,
   ],
 })
 export class AppModule {}

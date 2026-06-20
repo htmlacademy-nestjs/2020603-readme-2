@@ -1,0 +1,86 @@
+### Blog Service — базовый CRUD (REST Client / WebStorm HTTP Client)
+### Запуск сервиса: npx nx serve blog  (порт из apps/blog/.env: 3002)
+
+@host = http://localhost:3002/api
+
+############################################################
+# POSTS — CRUD
+############################################################
+
+### CREATE: текстовый пост (запоминаем ответ как createPost)
+# @name createPost
+POST {{host}}/posts/text
+Content-Type: application/json
+
+{
+  "title": "Мой первый пост о TypeScript разработке",
+  "announce": "Краткий анонс публикации, который заинтересует читателя и расскажет о сути материала.",
+  "text": "Полный текст публикации о том, как мы подключили PostgreSQL и Prisma ORM к сервису Blog, и что из этого вышло на практике.",
+  "tags": ["typescript", "nestjs"]
+}
+
+### READ: список публикаций
+GET {{host}}/posts
+
+### READ: одна публикация по id (берётся из ответа createPost)
+GET {{host}}/posts/{{createPost.response.body.$.id}}
+
+### UPDATE: обновить публикацию (по id из createPost)
+PATCH {{host}}/posts/{{createPost.response.body.$.id}}
+Content-Type: application/json
+
+{
+  "title": "Обновлённый заголовок поста о TypeScript",
+  "tags": ["typescript", "prisma"]
+}
+
+### DELETE: удалить публикацию (по id из createPost)
+DELETE {{host}}/posts/{{createPost.response.body.$.id}}
+
+############################################################
+# COMMENTS — CRUD (для поста createPost)
+############################################################
+
+### CREATE: комментарий к посту (запоминаем как createComment)
+# @name createComment
+POST {{host}}/posts/{{createPost.response.body.$.id}}/comments
+Content-Type: application/json
+
+{
+  "text": "Отличная статья, спасибо за подробности!"
+}
+
+### READ: комментарии к посту
+GET {{host}}/posts/{{createPost.response.body.$.id}}/comments
+
+### DELETE: удалить комментарий (по id из createComment)
+DELETE {{host}}/posts/{{createPost.response.body.$.id}}/comments/{{createComment.response.body.$.id}}
+
+############################################################
+# LIKES — create / delete (для поста createPost)
+############################################################
+
+### CREATE: поставить лайк
+POST {{host}}/posts/{{createPost.response.body.$.id}}/likes
+
+### DELETE: убрать лайк
+DELETE {{host}}/posts/{{createPost.response.body.$.id}}/likes
+
+############################################################
+# Запасной вариант — ручная подстановка id
+# Если переменные {{createPost.response.body.$.id}} не подхватываются
+# в вашей версии клиента, раскомментируйте и подставьте id вручную:
+#
+# @postId = ВСТАВЬТЕ_ID_ПОСТА
+# @commentId = ВСТАВЬТЕ_ID_КОММЕНТАРИЯ
+#
+# GET {{host}}/posts/{{postId}}
+# POST {{host}}/posts/{{postId}}/comments
+# Content-Type: application/json
+#
+# { "text": "Комментарий с ручным id" }
+#
+# DELETE {{host}}/posts/{{postId}}/comments/{{commentId}}
+# POST {{host}}/posts/{{postId}}/likes
+# DELETE {{host}}/posts/{{postId}}/likes
+############################################################

@@ -9,7 +9,7 @@ import {
   VideoPost,
 } from '@project/shared-types';
 import type { Post } from '@project/shared-types';
-import { PostMemoryRepository } from './post-memory.repository';
+import { PostRepository } from './post.repository';
 import type { GetPostQueryDto } from './dto/get-post-query.dto';
 import type { CreateVideoPostDto } from './dto/create-video-post.dto';
 import type { CreateTextPostDto } from './dto/create-text-post.dto';
@@ -31,7 +31,7 @@ type CreatePostDto =
 
 @Injectable()
 export class PostService {
-  constructor(private readonly postRepository: PostMemoryRepository) {}
+  constructor(private readonly postRepository: PostRepository) {}
 
   public async createPost(dto: CreatePostDto, authorId: string): Promise<Post> {
     const now = new Date();

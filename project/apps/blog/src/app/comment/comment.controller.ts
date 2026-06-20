@@ -10,9 +10,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { plainToInstance } from 'class-transformer';
 import { CommentService } from './comment.service.js';
 import { CreateCommentDto } from './dto/create-comment.dto.js';
-import { STUB_USER_ID} from '../app.constant';
+import { CommentRdo } from './rdo/comment.rdo';
+import { STUB_USER_ID } from '../app.constant';
 
 @ApiTags('comments')
 @Controller('posts/:postId/comments')
@@ -23,15 +25,31 @@ export class CommentController {
   @ApiOperation({ summary: 'Получить комментарии к публикации' })
   @ApiQuery({ name: 'page', required: false })
   @ApiResponse({ status: HttpStatus.OK })
-  public async index(@Param('postId') postId: string, @Query('page') page?: number) {
-    return this.commentService.getComments(postId, page);
+  public async index(
+    @Param('postId') postId: string,
+    @Query('page') page?: number,
+  ) {
+    const comments = await this.commentService.getComments(postId, page);
+    return comments.map((comment) =>
+      plainToInstance(CommentRdo, comment, { excludeExtraneousValues: true }),
+    );
   }
 
   @Post()
   @ApiOperation({ summary: 'Добавить комментарий к публикации' })
   @ApiResponse({ status: HttpStatus.CREATED })
-  public async create(@Param('postId') postId: string, @Body() dto: CreateCommentDto) {
-    return this.commentService.createComment(postId, dto, STUB_USER_ID);
+  public async create(
+    @Param('postId') postId: string,
+    @Body() dto: CreateCommentDto,
+  ) {
+    const comment = await this.commentService.createComment(
+      postId,
+      dto,
+      STUB_USER_ID,
+    );
+    return plainToInstance(CommentRdo, comment, {
+      excludeExtraneousValues: true,
+    });
   }
 
   @Delete(':id')

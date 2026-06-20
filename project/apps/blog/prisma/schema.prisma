@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client" // Prisma 7: новый ESM-генератор
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql" // url НЕ указываем — он в prisma.config.ts
+}
+
+enum PostType {
+  video
+  text
+  quote
+  photo
+  link
+}
+
+enum PostStatus {
+  published
+  draft
+}
+
+model Post {
+  id     String     @id @default(uuid()) @db.Uuid
+  type   PostType
+  status PostStatus @default(published)
+
+  // Автор — id из сервиса Users (opaque-значение). Правило проекта:
+  // кросс-сервисные ссылки храним как String без @db.Uuid и без FK.
+  authorId String @map("author_id")
+
+  // Репост (§2.13): автор меняется, оригинал сохраняем дополнительно
+  isRepost         Boolean @default(false) @map("is_repost")
+  originalAuthorId String? @map("original_author_id")
+  originalPostId   String? @map("original_post_id") @db.Uuid
+  originalPost     Post?   @relation("Repost", fields: [originalPostId], references: [id], onDelete: SetNull)
+  reposts          Post[]  @relation("Repost")
+
+  // Поля под конкретные типы (заполняются в зависимости от type)
+  title           String? // video, text
+  videoUrl        String? @map("video_url") // video
+  announce        String? // text
+  text            String? // text
+  quoteText       String? @map("quote_text") // quote
+  quoteAuthor     String? @map("quote_author") // quote
+  photoUrl        String? @map("photo_url") // photo
+  link            String? // link
+  linkDescription String? @map("link_description") // link
+
+  // §2.11: дата создания и (редактируемая) дата публикации — раздельно
+  createdAt   DateTime @default(now()) @map("created_at")
+  publishedAt DateTime @default(now()) @map("published_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  comments Comment[]
+  likes    Like[]
+  tags     Tag[]     @relation("PostTags")
+
+  @@index([status, publishedAt(sort: Desc)]) // лента по умолчанию §3.6
+  @@index([authorId]) // посты автора §3.3
+  @@index([type]) // фильтр по типу §3.8
+  @@index([title]) // поиск по заголовку §8
+  @@map("posts")
+}
+
+model Comment {
+  id        String   @id @default(uuid()) @db.Uuid
+  text      String
+  authorId  String   @map("author_id")
+  postId    String   @map("post_id") @db.Uuid
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade) // §2.3
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([postId])
+  @@map("comments")
+}
+
+model Like {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id")
+  postId    String   @map("post_id") @db.Uuid
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([postId, userId]) // §5.3: один лайк на пользователя
+  @@index([postId])
+  @@map("likes")
+}
+
+model Tag {
+  id    String @id @default(uuid()) @db.Uuid
+  title String @unique // храним в нижнем регистре, нормализация — в сервисе
+  posts Post[] @relation("PostTags")
+
+  @@map("tags")
+}
+
+// Опционально — сценарий «Моя лента» (§4) в ТЗ необязательный
+model Subscription {
+  id          String   @id @default(uuid()) @db.Uuid
+  followerId  String   @map("follower_id")
+  followingId String   @map("following_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@map("subscriptions")
+}
