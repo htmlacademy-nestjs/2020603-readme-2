@@ -23,10 +23,10 @@ Content-Type: application/json
 GET {{host}}/posts
 
 ### READ: одна публикация по id (берётся из ответа createPost)
-GET {{host}}/posts/{{createPost.response.body.$.id}}
+GET {{host}}/posts/{{createPost.response.body.id}}
 
 ### UPDATE: обновить публикацию (по id из createPost)
-PATCH {{host}}/posts/{{createPost.response.body.$.id}}
+PATCH {{host}}/posts/{{createPost.response.body.id}}
 Content-Type: application/json
 
 {
@@ -35,7 +35,7 @@ Content-Type: application/json
 }
 
 ### DELETE: удалить публикацию (по id из createPost)
-DELETE {{host}}/posts/{{createPost.response.body.$.id}}
+DELETE {{host}}/posts/{{createPost.response.body.id}}
 
 ############################################################
 # COMMENTS — CRUD (для поста createPost)
