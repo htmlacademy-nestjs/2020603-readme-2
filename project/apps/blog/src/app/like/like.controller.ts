@@ -7,7 +7,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { plainToInstance } from 'class-transformer';
+import { fillRdo } from '@project/shared-helpers';
 import { LikeService } from './like.service.js';
 import { LikeRdo } from './rdo/like.rdo';
 import { STUB_USER_ID } from '../app.constant';
@@ -23,7 +23,7 @@ export class LikeController {
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Лайк уже поставлен' })
   public async addLike(@Param('postId') postId: string) {
     const like = await this.likeService.addLike(postId, STUB_USER_ID);
-    return plainToInstance(LikeRdo, like, { excludeExtraneousValues: true });
+    return fillRdo(LikeRdo, like);
   }
 
   @Delete()

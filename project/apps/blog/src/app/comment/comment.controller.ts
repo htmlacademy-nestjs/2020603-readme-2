@@ -10,7 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { plainToInstance } from 'class-transformer';
+import { fillRdo, fillRdoList } from '@project/shared-helpers';
 import { CommentService } from './comment.service.js';
 import { CreateCommentDto } from './dto/create-comment.dto.js';
 import { CommentRdo } from './rdo/comment.rdo';
@@ -30,9 +30,7 @@ export class CommentController {
     @Query('page') page?: number,
   ) {
     const comments = await this.commentService.getComments(postId, page);
-    return comments.map((comment) =>
-      plainToInstance(CommentRdo, comment, { excludeExtraneousValues: true }),
-    );
+    return fillRdoList(CommentRdo, comments);
   }
 
   @Post()
@@ -47,9 +45,7 @@ export class CommentController {
       dto,
       STUB_USER_ID,
     );
-    return plainToInstance(CommentRdo, comment, {
-      excludeExtraneousValues: true,
-    });
+    return fillRdo(CommentRdo, comment);
   }
 
   @Delete(':id')

@@ -20,7 +20,8 @@
     "paths": {
       "@project/shared-types": ["libs/shared-types/src/index.ts"],
       "@project/shared-errors": ["libs/shared-errors/src/index.ts"],
-      "@project/shared-config": ["libs/shared-config/src/index.ts"]
+      "@project/shared-config": ["libs/shared-config/src/index.ts"],
+      "@project/shared-helpers": ["libs/shared-helpers/src/index.ts"]
     },
   },
 }

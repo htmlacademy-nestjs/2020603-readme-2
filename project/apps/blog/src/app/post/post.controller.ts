@@ -11,8 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { plainToInstance } from 'class-transformer';
-import type { Post as DomainPost } from '@project/shared-types';
+import { fillRdo, fillRdoList } from '@project/shared-helpers';
 import { PostService } from './post.service.js';
 import { CreateVideoPostDto } from './dto/create-video-post.dto';
 import { CreateTextPostDto } from './dto/create-text-post.dto';
@@ -28,26 +27,20 @@ import { STUB_USER_ID } from '../app.constant';
 export class PostController {
   constructor(private readonly postService: PostService) {}
 
-  private toRdo(post: DomainPost): PostRdo {
-    return plainToInstance(PostRdo, post, { excludeExtraneousValues: true });
-  }
-
-  private toRdoList(posts: DomainPost[]): PostRdo[] {
-    return posts.map((post) => this.toRdo(post));
-  }
-
   @Get()
   @ApiOperation({ summary: 'Получить список публикаций' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Список публикаций' })
   public async index(@Query() query: GetPostQueryDto) {
-    return this.toRdoList(await this.postService.findAll(query));
+    const posts = await this.postService.findAll(query);
+    return fillRdoList(PostRdo, posts);
   }
 
   @Get('drafts')
   @ApiOperation({ summary: 'Получить черновики текущего пользователя' })
   @ApiResponse({ status: HttpStatus.OK })
   public async drafts() {
-    return this.toRdoList(await this.postService.findDrafts(STUB_USER_ID));
+    const posts = await this.postService.findDrafts(STUB_USER_ID);
+    return fillRdoList(PostRdo, posts);
   }
 
   @Get('search')
@@ -55,7 +48,8 @@ export class PostController {
   @ApiQuery({ name: 'title', description: 'Строка для поиска' })
   @ApiResponse({ status: HttpStatus.OK })
   public async search(@Query('title') title: string) {
-    return this.toRdoList(await this.postService.search(title));
+    const posts = await this.postService.search(title);
+    return fillRdoList(PostRdo, posts);
   }
 
   @Get(':id')
@@ -63,42 +57,48 @@ export class PostController {
   @ApiResponse({ status: HttpStatus.OK })
   @ApiResponse({ status: HttpStatus.NOT_FOUND })
   public async show(@Param('id') id: string) {
-    return this.toRdo(await this.postService.findPost(id));
+    const post = await this.postService.findPost(id);
+    return fillRdo(PostRdo, post);
   }
 
   @Post('video')
   @ApiOperation({ summary: 'Создать публикацию типа «Видео»' })
   @ApiResponse({ status: HttpStatus.CREATED })
   public async createVideo(@Body() dto: CreateVideoPostDto) {
-    return this.toRdo(await this.postService.createPost(dto, STUB_USER_ID));
+    const post = await this.postService.createPost(dto, STUB_USER_ID);
+    return fillRdo(PostRdo, post);
   }
 
   @Post('text')
   @ApiOperation({ summary: 'Создать публикацию типа «Текст»' })
   @ApiResponse({ status: HttpStatus.CREATED })
   public async createText(@Body() dto: CreateTextPostDto) {
-    return this.toRdo(await this.postService.createPost(dto, STUB_USER_ID));
+    const post = await this.postService.createPost(dto, STUB_USER_ID);
+    return fillRdo(PostRdo, post);
   }
 
   @Post('quote')
   @ApiOperation({ summary: 'Создать публикацию типа «Цитата»' })
   @ApiResponse({ status: HttpStatus.CREATED })
   public async createQuote(@Body() dto: CreateQuotePostDto) {
-    return this.toRdo(await this.postService.createPost(dto, STUB_USER_ID));
+    const post = await this.postService.createPost(dto, STUB_USER_ID);
+    return fillRdo(PostRdo, post);
   }
 
   @Post('photo')
   @ApiOperation({ summary: 'Создать публикацию типа «Фото»' })
   @ApiResponse({ status: HttpStatus.CREATED })
   public async createPhoto(@Body() dto: CreatePhotoPostDto) {
-    return this.toRdo(await this.postService.createPost(dto, STUB_USER_ID));
+    const post = await this.postService.createPost(dto, STUB_USER_ID);
+    return fillRdo(PostRdo, post);
   }
 
   @Post('link')
   @ApiOperation({ summary: 'Создать публикацию типа «Ссылка»' })
   @ApiResponse({ status: HttpStatus.CREATED })
   public async createLink(@Body() dto: CreateLinkPostDto) {
-    return this.toRdo(await this.postService.createPost(dto, STUB_USER_ID));
+    const post = await this.postService.createPost(dto, STUB_USER_ID);
+    return fillRdo(PostRdo, post);
   }
 
   @Patch(':id')
@@ -106,7 +106,8 @@ export class PostController {
   @ApiResponse({ status: HttpStatus.OK })
   @ApiResponse({ status: HttpStatus.FORBIDDEN })
   public async update(@Param('id') id: string, @Body() dto: any) {
-    return this.toRdo(await this.postService.updatePost(id, dto, STUB_USER_ID));
+    const post = await this.postService.updatePost(id, dto, STUB_USER_ID);
+    return fillRdo(PostRdo, post);
   }
 
   @Delete(':id')
@@ -124,6 +125,7 @@ export class PostController {
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Публикация не найдена' })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Репост уже был сделан ранее' })
   public async repost(@Param('id') id: string) {
-    return this.toRdo(await this.postService.repost(id, STUB_USER_ID));
+    const post = await this.postService.repost(id, STUB_USER_ID);
+    return fillRdo(PostRdo, post);
   }
 }

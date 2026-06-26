@@ -11,17 +11,7 @@ import {
 import type { Post } from '@project/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { DEFAULT_LIMIT } from './post.constant';
-
-export type PostSortBy = 'publishedAt' | 'likes' | 'comments';
-
-export type PostQuery = {
-  limit?: number;
-  page?: number;
-  sortBy?: PostSortBy;
-  type?: PostType;
-  tag?: string;
-  authorId?: string;
-};
+import type { PostQuery } from './post-query.type';
 
 // Запись таблицы posts вместе со связями, нужными для маппинга в домен.
 type PostWithRelations = {

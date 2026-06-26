@@ -19,6 +19,9 @@ export class EnvironmentVariables {
   @IsEnum(Environment)
   public APPLICATION_NODE_ENV: Environment = Environment.Development;
 
+  // Явный тип `: number` обязателен: под SWC он задаёт design:type = Number,
+  // чтобы enableImplicitConversion привёл строку из .env к числу (см. AGENTS.md → Gotchas).
+  // eslint-disable-next-line @typescript-eslint/no-inferrable-types
   @IsInt()
   @Min(0)
   @Max(65535)
