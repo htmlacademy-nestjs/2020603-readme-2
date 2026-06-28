@@ -20,6 +20,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { ChangeUserPasswordDto } from './dto/change-user-password.dto';
 import { LoggedUserRdo } from './rdo/logged-user.rdo';
+import { UserIdParamDto } from '../user/dto/user-id-param.dto';
 import { UserRdo } from '../user/rdo/user.rdo';
 
 @ApiTags('authentication')
@@ -60,8 +61,8 @@ export class AuthenticationController {
   @ApiParam({ name: 'id', description: 'Идентификатор пользователя', example: '6707cf8c1234567890abcdef' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Информация о пользователе', type: UserRdo })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Пользователь не найден' })
-  public async show(@Param('id') id: string): Promise<UserRdo> {
-    const user = await this.authenticationService.getUser(id);
+  public async show(@Param() params: UserIdParamDto): Promise<UserRdo> {
+    const user = await this.authenticationService.getUser(params.id);
     return plainToInstance(UserRdo, user, { excludeExtraneousValues: true });
   }
 
@@ -73,10 +74,10 @@ export class AuthenticationController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Текущий пароль неверен' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Пользователь не найден' })
   public async changePassword(
-    @Param('id') id: string,
+    @Param() params: UserIdParamDto,
     @Body() dto: ChangeUserPasswordDto,
   ): Promise<UserRdo> {
-    const user = await this.authenticationService.changePassword(id, dto);
+    const user = await this.authenticationService.changePassword(params.id, dto);
     return plainToInstance(UserRdo, user, { excludeExtraneousValues: true });
   }
 }

@@ -6,7 +6,12 @@ export class LoginUserDto {
   @IsEmail()
   public email!: string;
 
-  @ApiProperty({ example: 'secret123', description: 'Пароль' })
+  @ApiProperty({
+    example: 'secret123',
+    description: 'Пароль (6–12 символов)',
+    minLength: 6,
+    maxLength: 12,
+  })
   @IsString()
   @MinLength(6)
   @MaxLength(12)
