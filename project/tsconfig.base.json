@@ -5,7 +5,7 @@
     "emitDeclarationOnly": true,
     "importHelpers": true,
     "isolatedModules": true,
-    "lib": ["es2022"],
+    "lib": ["es2023"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "baseUrl": ".",
@@ -16,11 +16,12 @@
     "noUnusedLocals": true,
     "skipLibCheck": true,
     "strict": true,
-    "target": "es2022",
+    "target": "es2023",
     "paths": {
       "@project/shared-types": ["libs/shared-types/src/index.ts"],
       "@project/shared-errors": ["libs/shared-errors/src/index.ts"],
-      "@project/shared-config": ["libs/shared-config/src/index.ts"]
+      "@project/shared-config": ["libs/shared-config/src/index.ts"],
+      "@project/shared-helpers": ["libs/shared-helpers/src/index.ts"]
     },
   },
 }

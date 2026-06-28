@@ -1,9 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsEnum, IsIn, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { PostType } from '@project/shared-types';
+import { POST_SORT_VALUES } from '../post-query.type';
+import type { PostQuery, PostSortBy } from '../post-query.type';
 
-export class GetPostQueryDto {
+export class GetPostQueryDto implements PostQuery {
   @ApiProperty({ example: 25, description: 'Количество записей на странице', required: false })
   @IsOptional()
   @Type(() => Number)
@@ -18,10 +20,10 @@ export class GetPostQueryDto {
   @Min(1)
   public page?: number;
 
-  @ApiProperty({ enum: ['publishedAt', 'likes', 'comments'], required: false })
+  @ApiProperty({ enum: POST_SORT_VALUES, required: false })
   @IsOptional()
-  @IsEnum(['publishedAt', 'likes', 'comments'])
-  public sortBy?: 'publishedAt' | 'likes' | 'comments';
+  @IsIn(POST_SORT_VALUES)
+  public sortBy?: PostSortBy;
 
   @ApiProperty({ enum: PostType, required: false })
   @IsOptional()

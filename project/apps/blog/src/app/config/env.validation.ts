@@ -25,33 +25,29 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(0)
   @Max(65535)
-  public APPLICATION_PORT: number = 3001;
+  public APPLICATION_PORT: number = 3002;
 
   @IsString()
   @MinLength(1)
-  public MONGO_HOST!: string;
+  public POSTGRES_HOST!: string;
 
   @IsInt()
   @Min(0)
   @Max(65535)
-  public MONGO_PORT!: number;
+  public POSTGRES_PORT!: number;
 
   @IsString()
   @MinLength(1)
-  public MONGO_USER!: string;
+  public POSTGRES_USER!: string;
 
   @IsString()
   @MinLength(1)
-  public MONGO_PASSWORD!: string;
+  public POSTGRES_PASSWORD!: string;
 
   @IsString()
   @MinLength(1)
   @MaxLength(64)
-  public MONGO_DATABASE!: string;
-
-  @IsString()
-  @MinLength(1)
-  public MONGO_AUTH_BASE!: string;
+  public POSTGRES_DB!: string;
 }
 
 export function validateEnv(

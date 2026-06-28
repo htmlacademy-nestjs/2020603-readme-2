@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
+  Equals,
   IsArray,
   IsOptional,
   IsString,
@@ -11,6 +12,7 @@ import { PostType } from '@project/shared-types';
 
 export class CreateTextPostDto {
   @ApiProperty({ example: PostType.Text, enum: PostType })
+  @Equals(PostType.Text)
   public readonly type = PostType.Text;
 
   @ApiProperty({ example: 'Мой первый пост о TypeScript разработке', description: '20–50 символов' })

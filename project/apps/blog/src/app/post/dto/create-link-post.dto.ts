@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
+  Equals,
   IsArray,
   IsOptional,
   IsString,
@@ -11,6 +12,7 @@ import { PostType } from '@project/shared-types';
 
 export class CreateLinkPostDto {
   @ApiProperty({ example: PostType.Link, enum: PostType })
+  @Equals(PostType.Link)
   public readonly type = PostType.Link;
 
   @ApiProperty({ example: 'https://nestjs.com', description: 'Валидный URL' })

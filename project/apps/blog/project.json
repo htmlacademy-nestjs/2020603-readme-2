@@ -1,0 +1,38 @@
+{
+  "name": "blog",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/blog/src",
+  "projectType": "application",
+  "targets": {
+    "db-validate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma validate --config apps/blog/prisma.config.ts"
+      }
+    },
+    "db-generate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma generate --config apps/blog/prisma.config.ts"
+      }
+    },
+    "db-migrate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma migrate dev --config apps/blog/prisma.config.ts"
+      }
+    },
+    "db-reset": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma migrate reset --force --config apps/blog/prisma.config.ts"
+      }
+    },
+    "db-fill": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma db seed --config apps/blog/prisma.config.ts"
+      }
+    }
+  }
+}

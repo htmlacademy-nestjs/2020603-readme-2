@@ -12,12 +12,19 @@ services:
       - '${MONGO_PORT}:27017'
     volumes:
       - ./mongodb:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   users.mongo-express:
     image: mongo-express:1
     restart: always
     depends_on:
-      - users.mongodb
+      users.mongodb:
+        condition: service_healthy
     env_file:
       - .env
     environment:

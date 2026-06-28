@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { Comment } from '@project/shared-types';
-import { CommentMemoryRepository } from './comment-memory.repository';
+import { CommentRepository } from './comment.repository';
 import type { CreateCommentDto } from './dto/create-comment.dto';
 import { CommentNotFoundError } from './comment.errors';
 
 @Injectable()
 export class CommentService {
-  constructor(private readonly commentRepository: CommentMemoryRepository) {}
+  constructor(private readonly commentRepository: CommentRepository) {}
 
   public async createComment(
     postId: string,

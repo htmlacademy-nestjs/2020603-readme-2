@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
+  Equals,
   IsArray,
   IsOptional,
   IsString,
@@ -13,6 +14,7 @@ import { PostType } from '@project/shared-types';
 
 export class CreateVideoPostDto {
   @ApiProperty({ example: PostType.Video, enum: PostType })
+  @Equals(PostType.Video)
   public readonly type = PostType.Video;
 
   @ApiProperty({ example: 'Как выучить TypeScript за 20 минут', description: '20–50 символов' })

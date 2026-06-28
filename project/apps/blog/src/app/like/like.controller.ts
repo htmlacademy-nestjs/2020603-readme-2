@@ -7,7 +7,9 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { fillRdo } from '@project/shared-helpers';
 import { LikeService } from './like.service.js';
+import { LikeRdo } from './rdo/like.rdo';
 import { STUB_USER_ID } from '../app.constant';
 
 @ApiTags('likes')
@@ -20,7 +22,8 @@ export class LikeController {
   @ApiResponse({ status: HttpStatus.CREATED })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Лайк уже поставлен' })
   public async addLike(@Param('postId') postId: string) {
-    return this.likeService.addLike(postId, STUB_USER_ID);
+    const like = await this.likeService.addLike(postId, STUB_USER_ID);
+    return fillRdo(LikeRdo, like);
   }
 
   @Delete()

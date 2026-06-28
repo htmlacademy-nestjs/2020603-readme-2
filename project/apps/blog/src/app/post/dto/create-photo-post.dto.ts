@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
+  Equals,
   IsArray,
   IsOptional,
   IsString,
@@ -10,6 +11,7 @@ import { PostType } from '@project/shared-types';
 
 export class CreatePhotoPostDto {
   @ApiProperty({ example: PostType.Photo, enum: PostType })
+  @Equals(PostType.Photo)
   public readonly type = PostType.Photo;
 
   @ApiProperty({ example: 'https://example.com/photo.jpg', description: 'URL фотографии (jpg/png, до 1 МБ)' })

@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
+  Equals,
   IsArray,
   IsOptional,
   IsString,
@@ -11,6 +12,7 @@ import { PostType } from '@project/shared-types';
 
 export class CreateQuotePostDto {
   @ApiProperty({ example: PostType.Quote, enum: PostType })
+  @Equals(PostType.Quote)
   public readonly type = PostType.Quote;
 
   @ApiProperty({ example: 'Любая достаточно продвинутая технология неотличима от магии', description: '20–300 символов' })

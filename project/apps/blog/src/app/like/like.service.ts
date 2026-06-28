@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { LikeMemoryRepository } from './like-memory.repository';
-import { PostMemoryRepository } from '../post/post-memory.repository';
+import { LikeRepository } from './like.repository';
+import { PostRepository } from '../post/post.repository';
 import { PostNotFoundError } from '../post/post.errors';
 import { LikeAlreadyExistsError } from './like.errors';
 
 @Injectable()
 export class LikeService {
   constructor(
-    private readonly likeRepository: LikeMemoryRepository,
-    private readonly postRepository: PostMemoryRepository,
+    private readonly likeRepository: LikeRepository,
+    private readonly postRepository: PostRepository,
   ) {}
 
   public async addLike(postId: string, userId: string) {
@@ -18,10 +18,8 @@ export class LikeService {
     const existing = await this.likeRepository.findByPostAndUser(postId, userId);
     if (existing) throw new LikeAlreadyExistsError(postId);
 
-    const like = await this.likeRepository.save(postId, userId);
-    post.likesCount += 1;
-    await this.postRepository.update(post);
-    return like;
+    // Счётчик лайков не храним — он вычисляется через Prisma _count при чтении поста.
+    return this.likeRepository.save(postId, userId);
   }
 
   public async removeLike(postId: string, userId: string) {
@@ -29,7 +27,5 @@ export class LikeService {
     if (!post) throw new PostNotFoundError(postId);
 
     await this.likeRepository.deleteByPostAndUser(postId, userId);
-    post.likesCount = Math.max(0, post.likesCount - 1);
-    await this.postRepository.update(post);
   }
 }
