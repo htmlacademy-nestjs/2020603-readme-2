@@ -9,7 +9,21 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix('api');
-  app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      stopAtFirstError: false,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      validationError: {
+        target: false,
+        value: false,
+      },
+    }),
+  );
   app.useGlobalFilters(new DomainExceptionFilter());
 
   const config = new DocumentBuilder()

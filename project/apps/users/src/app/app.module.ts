@@ -5,7 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
 import { AuthenticationModule } from './authentication/authentication.module';
-import { appConfig, mongoConfig, validateEnv } from './config';
+import { appConfig, jwtConfig, mongoConfig, validateEnv } from './config';
 import { getMongoConnectionString } from './helpers/mongo.helpers';
 
 @Module({
@@ -14,7 +14,7 @@ import { getMongoConnectionString } from './helpers/mongo.helpers';
       isGlobal: true,
       cache: true,
       envFilePath: 'apps/users/.env',
-      load: [appConfig, mongoConfig],
+      load: [appConfig, mongoConfig, jwtConfig],
       validate: validateEnv,
     }),
     MongooseModule.forRootAsync({

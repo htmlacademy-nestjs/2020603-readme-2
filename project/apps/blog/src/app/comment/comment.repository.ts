@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Comment } from '@project/shared-types';
+import type { PaginationResult } from '@project/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { DEFAULT_LIMIT } from './comment.constant';
+import type { CommentQuery } from './comment-query.type';
 
 type CommentRecord = {
   id: string;
@@ -25,14 +27,29 @@ export class CommentRepository {
     return comment;
   }
 
-  public async findByPostId(postId: string, page = 1): Promise<Comment[]> {
-    const records = await this.prisma.comment.findMany({
-      where: { postId },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * DEFAULT_LIMIT,
-      take: DEFAULT_LIMIT,
-    });
-    return records.map((record) => this.toDomain(record));
+  public async findByPostId(
+    postId: string,
+    query: CommentQuery = {},
+  ): Promise<PaginationResult<Comment>> {
+    const { limit = DEFAULT_LIMIT, page = 1 } = query;
+
+    const [totalItems, records] = await this.prisma.$transaction([
+      this.prisma.comment.count({ where: { postId } }),
+      this.prisma.comment.findMany({
+        where: { postId },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      entities: records.map((record) => this.toDomain(record)),
+      totalPages: Math.ceil(totalItems / limit),
+      totalItems,
+      currentPage: page,
+      itemsPerPage: limit,
+    };
   }
 
   public async findById(id: string): Promise<Comment | null> {

@@ -5,6 +5,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { PostModule } from './post/post.module';
 import { CommentModule } from './comment/comment.module';
 import { LikeModule } from './like/like.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { LikeModule } from './like/like.module';
     PostModule,
     CommentModule,
     LikeModule,
+    SubscriptionModule,
   ],
 })
 export class AppModule {}

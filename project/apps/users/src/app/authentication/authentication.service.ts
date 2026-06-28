@@ -1,6 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import { User } from '@project/shared-types';
+import { Inject, Injectable } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { User, type TokenPayload } from '@project/shared-types';
 import { UserRepository } from '../user/user.repository';
+import { jwtConfig } from '../config';
 import { PasswordHasher } from './password.hasher';
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { LoginUserDto } from './dto/login-user.dto';
@@ -11,11 +14,19 @@ import {
   UserNotFoundError,
 } from './authentication.errors';
 
+export type AuthTokens = {
+  accessToken: string;
+  refreshToken: string;
+};
+
 @Injectable()
 export class AuthenticationService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly passwordHasher: PasswordHasher,
+    private readonly jwtService: JwtService,
+    @Inject(jwtConfig.KEY)
+    private readonly tokenConfig: ConfigType<typeof jwtConfig>,
   ) {}
 
   public async register(dto: CreateUserDto): Promise<User> {
@@ -49,6 +60,27 @@ export class AuthenticationService {
     }
 
     return user;
+  }
+
+  public async createTokens(user: User): Promise<AuthTokens> {
+    const payload: TokenPayload = {
+      sub: user.id,
+      email: user.email,
+      name: user.name,
+    };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload, {
+        secret: this.tokenConfig.accessTokenSecret,
+        expiresIn: this.tokenConfig.accessTokenExpiresIn,
+      }),
+      this.jwtService.signAsync(payload, {
+        secret: this.tokenConfig.refreshTokenSecret,
+        expiresIn: this.tokenConfig.refreshTokenExpiresIn,
+      }),
+    ]);
+
+    return { accessToken, refreshToken };
   }
 
   public async getUser(id: string): Promise<User> {

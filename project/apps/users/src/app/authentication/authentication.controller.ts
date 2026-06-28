@@ -10,9 +10,14 @@ import {
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import {
+  ApiBadRequestResponse,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiParam,
-  ApiResponse,
+  ApiUnauthorizedResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthenticationService } from './authentication.service';
@@ -32,9 +37,9 @@ export class AuthenticationController {
 
   @Post('register')
   @ApiOperation({ summary: 'Регистрация нового пользователя' })
-  @ApiResponse({ status: HttpStatus.CREATED, description: 'Пользователь успешно создан', type: UserRdo })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Невалидные данные регистрации' })
-  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Пользователь с таким email уже существует' })
+  @ApiCreatedResponse({ description: 'Пользователь успешно создан', type: UserRdo })
+  @ApiBadRequestResponse({ description: 'Невалидные данные регистрации' })
+  @ApiConflictResponse({ description: 'Пользователь с таким email уже существует' })
   public async register(@Body() dto: CreateUserDto): Promise<UserRdo> {
     const user = await this.authenticationService.register(dto);
     return plainToInstance(UserRdo, user, { excludeExtraneousValues: true });
@@ -42,25 +47,28 @@ export class AuthenticationController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Вход в систему (получение JWT токена)' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Успешная авторизация', type: LoggedUserRdo })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Неверный пароль' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Пользователь не найден' })
+  @ApiOperation({ summary: 'Вход в систему (получение JWT токенов)' })
+  @ApiOkResponse({ description: 'Успешная авторизация', type: LoggedUserRdo })
+  @ApiBadRequestResponse({ description: 'Невалидные данные авторизации' })
+  @ApiUnauthorizedResponse({ description: 'Неверный пароль' })
+  @ApiNotFoundResponse({ description: 'Пользователь не найден' })
   public async login(@Body() dto: LoginUserDto): Promise<LoggedUserRdo> {
     const user = await this.authenticationService.verifyUser(dto);
-    // TODO: Заменить на реальную генерацию JWT через @nestjs/jwt
+    const tokens = await this.authenticationService.createTokens(user);
+
     return {
       id: user.id,
       email: user.email,
-      accessToken: 'jwt-token-placeholder',
+      ...tokens,
     };
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Получить информацию о пользователе' })
   @ApiParam({ name: 'id', description: 'Идентификатор пользователя', example: '6707cf8c1234567890abcdef' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Информация о пользователе', type: UserRdo })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Пользователь не найден' })
+  @ApiOkResponse({ description: 'Информация о пользователе', type: UserRdo })
+  @ApiBadRequestResponse({ description: 'Невалидный идентификатор пользователя' })
+  @ApiNotFoundResponse({ description: 'Пользователь не найден' })
   public async show(@Param() params: UserIdParamDto): Promise<UserRdo> {
     const user = await this.authenticationService.getUser(params.id);
     return plainToInstance(UserRdo, user, { excludeExtraneousValues: true });
@@ -70,9 +78,10 @@ export class AuthenticationController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Смена пароля пользователя' })
   @ApiParam({ name: 'id', description: 'Идентификатор пользователя', example: '6707cf8c1234567890abcdef' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Пароль успешно изменён', type: UserRdo })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Текущий пароль неверен' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Пользователь не найден' })
+  @ApiOkResponse({ description: 'Пароль успешно изменён', type: UserRdo })
+  @ApiBadRequestResponse({ description: 'Невалидные данные смены пароля' })
+  @ApiUnauthorizedResponse({ description: 'Текущий пароль неверен' })
+  @ApiNotFoundResponse({ description: 'Пользователь не найден' })
   public async changePassword(
     @Param() params: UserIdParamDto,
     @Body() dto: ChangeUserPasswordDto,

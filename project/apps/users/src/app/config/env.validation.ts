@@ -52,6 +52,22 @@ export class EnvironmentVariables {
   @IsString()
   @MinLength(1)
   public MONGO_AUTH_BASE!: string;
+
+  @IsString()
+  @MinLength(32)
+  public JWT_ACCESS_TOKEN_SECRET!: string;
+
+  @IsString()
+  @MinLength(1)
+  public JWT_ACCESS_TOKEN_EXPIRES_IN!: string;
+
+  @IsString()
+  @MinLength(32)
+  public JWT_REFRESH_TOKEN_SECRET!: string;
+
+  @IsString()
+  @MinLength(1)
+  public JWT_REFRESH_TOKEN_EXPIRES_IN!: string;
 }
 
 export function validateEnv(

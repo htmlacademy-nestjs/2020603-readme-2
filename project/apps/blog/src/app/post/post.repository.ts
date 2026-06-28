@@ -8,9 +8,9 @@ import {
   TextPost,
   VideoPost,
 } from '@project/shared-types';
-import type { Post } from '@project/shared-types';
+import type { PaginationResult, Post } from '@project/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
-import { DEFAULT_LIMIT } from './post.constant';
+import { DEFAULT_LIMIT, SEARCH_LIMIT } from './post.constant';
 import type { PostQuery } from './post-query.type';
 
 // Запись таблицы posts вместе со связями, нужными для маппинга в домен.
@@ -36,6 +36,9 @@ type PostWithRelations = {
   tags: { title: string }[];
   _count: { likes: number; comments: number };
 };
+
+type PostWhere = Record<string, unknown>;
+type PostOrderBy = Record<string, unknown>;
 
 const POST_INCLUDE = {
   tags: { select: { title: true } },
@@ -113,6 +116,79 @@ export class PostRepository {
     }));
   }
 
+  private getOrderBy(sortBy: PostQuery['sortBy']): PostOrderBy {
+    if (sortBy === 'likes') {
+      return { likes: { _count: 'desc' } };
+    }
+
+    if (sortBy === 'comments') {
+      return { comments: { _count: 'desc' } };
+    }
+
+    return { publishedAt: 'desc' };
+  }
+
+  private buildWhere(
+    query: PostQuery,
+    options: {
+      status: PostStatus;
+      authorId?: string;
+      authorIds?: string[];
+    },
+  ): PostWhere {
+    const where: PostWhere = { status: options.status };
+
+    if (query.type) {
+      where.type = query.type;
+    }
+
+    if (query.tag) {
+      where.tags = { some: { title: query.tag.toLowerCase() } };
+    }
+
+    if (options.authorIds) {
+      const authorIds = query.authorId
+        ? options.authorIds.filter((authorId) => authorId === query.authorId)
+        : options.authorIds;
+      where.authorId = { in: authorIds };
+    } else if (options.authorId) {
+      where.authorId = options.authorId;
+    } else if (query.authorId) {
+      where.authorId = query.authorId;
+    }
+
+    return where;
+  }
+
+  private async findPage(
+    where: PostWhere,
+    query: PostQuery,
+  ): Promise<PaginationResult<Post>> {
+    const limit = query.limit ?? DEFAULT_LIMIT;
+    const page = query.page ?? 1;
+
+    const [totalItems, records] = await this.prisma.$transaction([
+      this.prisma.post.count({ where }),
+      this.prisma.post.findMany({
+        where,
+        include: POST_INCLUDE,
+        orderBy: this.getOrderBy(query.sortBy),
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      entities: records.map((record) =>
+        this.toDomain(record as PostWithRelations),
+      ),
+      totalPages: Math.ceil(totalItems / limit),
+      totalItems,
+      currentPage: page,
+      itemsPerPage: limit,
+    };
+  }
+
   public async findById(id: string): Promise<Post | null> {
     const record = await this.prisma.post.findUnique({
       where: { id },
@@ -121,46 +197,42 @@ export class PostRepository {
     return record ? this.toDomain(record as PostWithRelations) : null;
   }
 
-  public async findAll(query: PostQuery): Promise<Post[]> {
-    const {
-      limit = DEFAULT_LIMIT,
-      page = 1,
-      sortBy = 'publishedAt',
-      type,
-      tag,
-      authorId,
-    } = query;
-
-    const orderBy =
-      sortBy === 'likes'
-        ? { likes: { _count: 'desc' as const } }
-        : sortBy === 'comments'
-          ? { comments: { _count: 'desc' as const } }
-          : { publishedAt: 'desc' as const };
-
-    const records = await this.prisma.post.findMany({
-      where: {
-        status: PostStatus.Published,
-        ...(type ? { type } : {}),
-        ...(authorId ? { authorId } : {}),
-        ...(tag ? { tags: { some: { title: tag } } } : {}),
-      },
-      include: POST_INCLUDE,
-      orderBy,
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    return records.map((record) => this.toDomain(record as PostWithRelations));
+  public async findAll(query: PostQuery): Promise<PaginationResult<Post>> {
+    return this.findPage(
+      this.buildWhere(query, { status: PostStatus.Published }),
+      query,
+    );
   }
 
-  public async findDrafts(authorId: string): Promise<Post[]> {
-    const records = await this.prisma.post.findMany({
-      where: { authorId, status: PostStatus.Draft },
-      include: POST_INCLUDE,
-      orderBy: { createdAt: 'desc' },
+  public async findFeed(
+    userId: string,
+    query: PostQuery,
+  ): Promise<PaginationResult<Post>> {
+    const subscriptions = await this.prisma.subscription.findMany({
+      where: { followerId: userId },
+      select: { followingId: true },
     });
-    return records.map((record) => this.toDomain(record as PostWithRelations));
+    const authorIds = [
+      ...new Set([
+        userId,
+        ...subscriptions.map((subscription) => subscription.followingId),
+      ]),
+    ];
+
+    return this.findPage(
+      this.buildWhere(query, { status: PostStatus.Published, authorIds }),
+      query,
+    );
+  }
+
+  public async findDrafts(
+    authorId: string,
+    query: PostQuery,
+  ): Promise<PaginationResult<Post>> {
+    return this.findPage(
+      this.buildWhere(query, { status: PostStatus.Draft, authorId }),
+      query,
+    );
   }
 
   public async findByTitle(title: string): Promise<Post[]> {
@@ -170,7 +242,8 @@ export class PostRepository {
         title: { contains: title, mode: 'insensitive' },
       },
       include: POST_INCLUDE,
-      take: 20,
+      orderBy: { publishedAt: 'desc' },
+      take: SEARCH_LIMIT,
     });
     return records.map((record) => this.toDomain(record as PostWithRelations));
   }

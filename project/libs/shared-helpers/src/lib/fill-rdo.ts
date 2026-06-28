@@ -1,4 +1,5 @@
 import { plainToInstance, ClassConstructor } from 'class-transformer';
+import type { PaginationResult } from '@project/shared-types';
 
 /**
  * Преобразует источник (доменный объект/запись БД) в RDO,
@@ -14,4 +15,14 @@ export function fillRdoList<T, V>(
   source: V[],
 ): T[] {
   return source.map((item) => fillRdo(RdoClass, item));
+}
+
+export function fillRdoPagination<T, V>(
+  RdoClass: ClassConstructor<T>,
+  source: PaginationResult<V>,
+): PaginationResult<T> {
+  return {
+    ...source,
+    entities: fillRdoList(RdoClass, source.entities),
+  };
 }

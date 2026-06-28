@@ -1,1 +1,1 @@
-export { fillRdo, fillRdoList } from './lib/fill-rdo';
+export { fillRdo, fillRdoList, fillRdoPagination } from './lib/fill-rdo';

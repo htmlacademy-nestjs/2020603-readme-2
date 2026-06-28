@@ -10,8 +10,24 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { fillRdo, fillRdoList } from '@project/shared-helpers';
+import {
+  ApiBadRequestResponse,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
+import {
+  fillRdo,
+  fillRdoList,
+  fillRdoPagination,
+} from '@project/shared-helpers';
 import { PostService } from './post.service.js';
 import { CreateVideoPostDto } from './dto/create-video-post.dto';
 import { CreateTextPostDto } from './dto/create-text-post.dto';
@@ -19,8 +35,10 @@ import { CreateQuotePostDto } from './dto/create-quote-post.dto';
 import { CreatePhotoPostDto } from './dto/create-photo-post.dto';
 import { CreateLinkPostDto } from './dto/create-link-post.dto';
 import { GetPostQueryDto } from './dto/get-post-query.dto';
+import { SearchPostQueryDto } from './dto/search-post-query.dto';
 import { PostRdo } from './rdo/post.rdo';
 import { STUB_USER_ID } from '../app.constant';
+import { ApiPaginatedResponse } from '../common/api-paginated-response.decorator';
 
 @ApiTags('posts')
 @Controller('posts')
@@ -29,33 +47,43 @@ export class PostController {
 
   @Get()
   @ApiOperation({ summary: 'Получить список публикаций' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Список публикаций' })
+  @ApiPaginatedResponse(PostRdo, 'Список опубликованных публикаций')
   public async index(@Query() query: GetPostQueryDto) {
     const posts = await this.postService.findAll(query);
-    return fillRdoList(PostRdo, posts);
+    return fillRdoPagination(PostRdo, posts);
+  }
+
+  @Get('feed')
+  @ApiOperation({ summary: 'Получить ленту текущего пользователя' })
+  @ApiPaginatedResponse(PostRdo, 'Постраничная лента текущего пользователя')
+  public async feed(@Query() query: GetPostQueryDto) {
+    const posts = await this.postService.findFeed(STUB_USER_ID, query);
+    return fillRdoPagination(PostRdo, posts);
   }
 
   @Get('drafts')
   @ApiOperation({ summary: 'Получить черновики текущего пользователя' })
-  @ApiResponse({ status: HttpStatus.OK })
-  public async drafts() {
-    const posts = await this.postService.findDrafts(STUB_USER_ID);
-    return fillRdoList(PostRdo, posts);
+  @ApiPaginatedResponse(PostRdo, 'Постраничный список черновиков текущего пользователя')
+  public async drafts(@Query() query: GetPostQueryDto) {
+    const posts = await this.postService.findDrafts(STUB_USER_ID, query);
+    return fillRdoPagination(PostRdo, posts);
   }
 
   @Get('search')
   @ApiOperation({ summary: 'Поиск публикаций по заголовку' })
   @ApiQuery({ name: 'title', description: 'Строка для поиска' })
-  @ApiResponse({ status: HttpStatus.OK })
-  public async search(@Query('title') title: string) {
-    const posts = await this.postService.search(title);
+  @ApiOkResponse({ description: 'Результаты поиска', type: [PostRdo] })
+  @ApiBadRequestResponse({ description: 'Невалидные параметры поиска' })
+  public async search(@Query() query: SearchPostQueryDto) {
+    const posts = await this.postService.search(query.title);
     return fillRdoList(PostRdo, posts);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Получить публикацию по ID' })
-  @ApiResponse({ status: HttpStatus.OK })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND })
+  @ApiParam({ name: 'id', description: 'Идентификатор публикации', format: 'uuid' })
+  @ApiOkResponse({ description: 'Публикация найдена', type: PostRdo })
+  @ApiNotFoundResponse({ description: 'Публикация не найдена' })
   public async show(@Param('id') id: string) {
     const post = await this.postService.findPost(id);
     return fillRdo(PostRdo, post);
@@ -63,7 +91,8 @@ export class PostController {
 
   @Post('video')
   @ApiOperation({ summary: 'Создать публикацию типа «Видео»' })
-  @ApiResponse({ status: HttpStatus.CREATED })
+  @ApiCreatedResponse({ description: 'Публикация создана', type: PostRdo })
+  @ApiBadRequestResponse({ description: 'Невалидные данные публикации' })
   public async createVideo(@Body() dto: CreateVideoPostDto) {
     const post = await this.postService.createPost(dto, STUB_USER_ID);
     return fillRdo(PostRdo, post);
@@ -71,7 +100,8 @@ export class PostController {
 
   @Post('text')
   @ApiOperation({ summary: 'Создать публикацию типа «Текст»' })
-  @ApiResponse({ status: HttpStatus.CREATED })
+  @ApiCreatedResponse({ description: 'Публикация создана', type: PostRdo })
+  @ApiBadRequestResponse({ description: 'Невалидные данные публикации' })
   public async createText(@Body() dto: CreateTextPostDto) {
     const post = await this.postService.createPost(dto, STUB_USER_ID);
     return fillRdo(PostRdo, post);
@@ -79,7 +109,8 @@ export class PostController {
 
   @Post('quote')
   @ApiOperation({ summary: 'Создать публикацию типа «Цитата»' })
-  @ApiResponse({ status: HttpStatus.CREATED })
+  @ApiCreatedResponse({ description: 'Публикация создана', type: PostRdo })
+  @ApiBadRequestResponse({ description: 'Невалидные данные публикации' })
   public async createQuote(@Body() dto: CreateQuotePostDto) {
     const post = await this.postService.createPost(dto, STUB_USER_ID);
     return fillRdo(PostRdo, post);
@@ -87,7 +118,8 @@ export class PostController {
 
   @Post('photo')
   @ApiOperation({ summary: 'Создать публикацию типа «Фото»' })
-  @ApiResponse({ status: HttpStatus.CREATED })
+  @ApiCreatedResponse({ description: 'Публикация создана', type: PostRdo })
+  @ApiBadRequestResponse({ description: 'Невалидные данные публикации' })
   public async createPhoto(@Body() dto: CreatePhotoPostDto) {
     const post = await this.postService.createPost(dto, STUB_USER_ID);
     return fillRdo(PostRdo, post);
@@ -95,7 +127,8 @@ export class PostController {
 
   @Post('link')
   @ApiOperation({ summary: 'Создать публикацию типа «Ссылка»' })
-  @ApiResponse({ status: HttpStatus.CREATED })
+  @ApiCreatedResponse({ description: 'Публикация создана', type: PostRdo })
+  @ApiBadRequestResponse({ description: 'Невалидные данные публикации' })
   public async createLink(@Body() dto: CreateLinkPostDto) {
     const post = await this.postService.createPost(dto, STUB_USER_ID);
     return fillRdo(PostRdo, post);
@@ -103,8 +136,11 @@ export class PostController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Обновить публикацию' })
-  @ApiResponse({ status: HttpStatus.OK })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN })
+  @ApiParam({ name: 'id', description: 'Идентификатор публикации', format: 'uuid' })
+  @ApiOkResponse({ description: 'Публикация обновлена', type: PostRdo })
+  @ApiBadRequestResponse({ description: 'Невалидные данные публикации' })
+  @ApiForbiddenResponse({ description: 'Редактировать можно только свои публикации' })
+  @ApiNotFoundResponse({ description: 'Публикация не найдена' })
   public async update(@Param('id') id: string, @Body() dto: any) {
     const post = await this.postService.updatePost(id, dto, STUB_USER_ID);
     return fillRdo(PostRdo, post);
@@ -113,17 +149,20 @@ export class PostController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Удалить публикацию' })
-  @ApiResponse({ status: HttpStatus.NO_CONTENT })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN })
+  @ApiParam({ name: 'id', description: 'Идентификатор публикации', format: 'uuid' })
+  @ApiNoContentResponse({ description: 'Публикация удалена' })
+  @ApiForbiddenResponse({ description: 'Удалять можно только свои публикации' })
+  @ApiNotFoundResponse({ description: 'Публикация не найдена' })
   public async destroy(@Param('id') id: string) {
     await this.postService.deletePost(id, STUB_USER_ID);
   }
 
   @Post(':id/repost')
   @ApiOperation({ summary: 'Репостнуть публикацию' })
-  @ApiResponse({ status: HttpStatus.CREATED })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Публикация не найдена' })
-  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Репост уже был сделан ранее' })
+  @ApiParam({ name: 'id', description: 'Идентификатор публикации', format: 'uuid' })
+  @ApiCreatedResponse({ description: 'Репост создан', type: PostRdo })
+  @ApiNotFoundResponse({ description: 'Публикация не найдена' })
+  @ApiConflictResponse({ description: 'Репост уже был сделан ранее' })
   public async repost(@Param('id') id: string) {
     const post = await this.postService.repost(id, STUB_USER_ID);
     return fillRdo(PostRdo, post);
