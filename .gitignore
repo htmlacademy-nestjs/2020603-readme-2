@@ -21,5 +21,6 @@ coverage
 # PostgreSQL data directories (docker volumes from compose.yaml)
 **/postgres/
 
-# Prisma generated client (Blog)
+# Prisma generated clients
 project/apps/blog/src/generated/
+project/apps/users/src/generated/

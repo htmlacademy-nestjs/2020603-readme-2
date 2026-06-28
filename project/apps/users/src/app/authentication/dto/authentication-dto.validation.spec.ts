@@ -106,6 +106,6 @@ describe('Authentication DTO validation', () => {
       transformDto(UserIdParamDto, { id: 'invalid-id' }, 'param'),
     );
 
-    expect(messages).toContain('id must be a mongodb id');
+    expect(messages).toContain('id must be a UUID');
   });
 });

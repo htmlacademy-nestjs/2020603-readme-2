@@ -1,11 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsMongoId } from 'class-validator';
+import { IsUUID } from 'class-validator';
 
 export class UserIdParamDto {
   @ApiProperty({
-    example: '6707cf8c1234567890abcdef',
+    example: '2f4b7d3a-3c1b-4c4d-8b6a-8ef7b92f1011',
     description: 'Идентификатор пользователя',
+    format: 'uuid',
   })
-  @IsMongoId()
+  @IsUUID('4')
   public id!: string;
 }

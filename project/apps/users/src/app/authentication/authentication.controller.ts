@@ -31,15 +31,18 @@ import { UserRdo } from '../user/rdo/user.rdo';
 @ApiTags('authentication')
 @Controller('auth')
 export class AuthenticationController {
-  constructor(
-    private readonly authenticationService: AuthenticationService,
-  ) {}
+  constructor(private readonly authenticationService: AuthenticationService) {}
 
   @Post('register')
   @ApiOperation({ summary: 'Регистрация нового пользователя' })
-  @ApiCreatedResponse({ description: 'Пользователь успешно создан', type: UserRdo })
+  @ApiCreatedResponse({
+    description: 'Пользователь успешно создан',
+    type: UserRdo,
+  })
   @ApiBadRequestResponse({ description: 'Невалидные данные регистрации' })
-  @ApiConflictResponse({ description: 'Пользователь с таким email уже существует' })
+  @ApiConflictResponse({
+    description: 'Пользователь с таким email уже существует',
+  })
   public async register(@Body() dto: CreateUserDto): Promise<UserRdo> {
     const user = await this.authenticationService.register(dto);
     return plainToInstance(UserRdo, user, { excludeExtraneousValues: true });
@@ -65,9 +68,16 @@ export class AuthenticationController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Получить информацию о пользователе' })
-  @ApiParam({ name: 'id', description: 'Идентификатор пользователя', example: '6707cf8c1234567890abcdef' })
+  @ApiParam({
+    name: 'id',
+    description: 'Идентификатор пользователя',
+    example: '2f4b7d3a-3c1b-4c4d-8b6a-8ef7b92f1011',
+    format: 'uuid',
+  })
   @ApiOkResponse({ description: 'Информация о пользователе', type: UserRdo })
-  @ApiBadRequestResponse({ description: 'Невалидный идентификатор пользователя' })
+  @ApiBadRequestResponse({
+    description: 'Невалидный идентификатор пользователя',
+  })
   @ApiNotFoundResponse({ description: 'Пользователь не найден' })
   public async show(@Param() params: UserIdParamDto): Promise<UserRdo> {
     const user = await this.authenticationService.getUser(params.id);
@@ -77,7 +87,12 @@ export class AuthenticationController {
   @Patch(':id/password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Смена пароля пользователя' })
-  @ApiParam({ name: 'id', description: 'Идентификатор пользователя', example: '6707cf8c1234567890abcdef' })
+  @ApiParam({
+    name: 'id',
+    description: 'Идентификатор пользователя',
+    example: '2f4b7d3a-3c1b-4c4d-8b6a-8ef7b92f1011',
+    format: 'uuid',
+  })
   @ApiOkResponse({ description: 'Пароль успешно изменён', type: UserRdo })
   @ApiBadRequestResponse({ description: 'Невалидные данные смены пароля' })
   @ApiUnauthorizedResponse({ description: 'Текущий пароль неверен' })
@@ -86,7 +101,10 @@ export class AuthenticationController {
     @Param() params: UserIdParamDto,
     @Body() dto: ChangeUserPasswordDto,
   ): Promise<UserRdo> {
-    const user = await this.authenticationService.changePassword(params.id, dto);
+    const user = await this.authenticationService.changePassword(
+      params.id,
+      dto,
+    );
     return plainToInstance(UserRdo, user, { excludeExtraneousValues: true });
   }
 }

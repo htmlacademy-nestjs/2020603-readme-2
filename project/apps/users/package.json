@@ -3,7 +3,38 @@
   "version": "0.0.1",
   "private": true,
   "nx": {
+    "name": "users",
     "targets": {
+      "db-validate": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma validate --config apps/users/prisma.config.ts"
+        }
+      },
+      "db-generate": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma generate --config apps/users/prisma.config.ts"
+        }
+      },
+      "db-migrate": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma migrate dev --config apps/users/prisma.config.ts"
+        }
+      },
+      "db-reset": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma migrate reset --force --config apps/users/prisma.config.ts"
+        }
+      },
+      "db-fill": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma db seed --config apps/users/prisma.config.ts"
+        }
+      },
       "build": {
         "executor": "nx:run-commands",
         "options": {
@@ -63,15 +94,15 @@
           "build"
         ],
         "options": {
-          "buildTarget": "@project/users:build",
+          "buildTarget": "users:build",
           "runBuildTargetDependencies": false
         },
         "configurations": {
           "development": {
-            "buildTarget": "@project/users:build:development"
+            "buildTarget": "users:build:development"
           },
           "production": {
-            "buildTarget": "@project/users:build:production"
+            "buildTarget": "users:build:production"
           }
         }
       },

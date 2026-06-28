@@ -4,7 +4,8 @@ import { Expose } from 'class-transformer';
 export class UserRdo {
   @ApiProperty({
     description: 'Идентификатор пользователя',
-    example: '6707cf8c1234567890abcdef',
+    example: '2f4b7d3a-3c1b-4c4d-8b6a-8ef7b92f1011',
+    format: 'uuid',
   })
   @Expose()
   public id!: string;
