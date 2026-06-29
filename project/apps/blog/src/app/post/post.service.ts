@@ -8,7 +8,7 @@ import {
   TextPost,
   VideoPost,
 } from '@project/shared-types';
-import type { Post } from '@project/shared-types';
+import type { PaginationResult, Post } from '@project/shared-types';
 import { PostRepository } from './post.repository';
 import type { GetPostQueryDto } from './dto/get-post-query.dto';
 import type { CreateVideoPostDto } from './dto/create-video-post.dto';
@@ -57,12 +57,24 @@ export class PostService {
     return post;
   }
 
-  public async findAll(query: GetPostQueryDto): Promise<Post[]> {
+  public async findAll(
+    query: GetPostQueryDto,
+  ): Promise<PaginationResult<Post>> {
     return this.postRepository.findAll(query);
   }
 
-  public async findDrafts(authorId: string): Promise<Post[]> {
-    return this.postRepository.findDrafts(authorId);
+  public async findFeed(
+    userId: string,
+    query: GetPostQueryDto,
+  ): Promise<PaginationResult<Post>> {
+    return this.postRepository.findFeed(userId, query);
+  }
+
+  public async findDrafts(
+    authorId: string,
+    query: GetPostQueryDto,
+  ): Promise<PaginationResult<Post>> {
+    return this.postRepository.findDrafts(authorId, query);
   }
 
   public async search(title: string): Promise<Post[]> {

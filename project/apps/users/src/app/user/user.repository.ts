@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { User } from '@project/shared-types';
-import { UserModel, UserDocument } from './user.schema';
+import type { User as UserRecord } from '../../generated/prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreateUserData {
   email: string;
@@ -13,19 +12,16 @@ export interface CreateUserData {
 
 @Injectable()
 export class UserRepository {
-  constructor(
-    @InjectModel(UserModel.name)
-    private readonly userModel: Model<UserDocument>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  private documentToUser(document: UserDocument): User {
+  private toDomain(record: UserRecord): User {
     const user = new User();
-    user.id = document._id.toString();
-    user.email = document.email;
-    user.name = document.name;
-    user.passwordHash = document.passwordHash;
-    user.avatarUrl = document.avatarUrl;
-    user.createdAt = document.createdAt;
+    user.id = record.id;
+    user.email = record.email;
+    user.name = record.name;
+    user.passwordHash = record.passwordHash;
+    user.avatarUrl = record.avatarUrl ?? undefined;
+    user.createdAt = record.createdAt;
     // Счётчики формируются здесь. Пока заглушки —
     // позже будут реальные агрегаты (подсчёт подписок/постов).
     user.postsCount = 0;
@@ -34,31 +30,37 @@ export class UserRepository {
   }
 
   public async findById(id: string): Promise<User | null> {
-    const document = await this.userModel.findById(id).exec();
-    return document ? this.documentToUser(document) : null;
+    const record = await this.prisma.user.findUnique({ where: { id } });
+    return record ? this.toDomain(record) : null;
   }
 
   public async findByEmail(email: string): Promise<User | null> {
-    const document = await this.userModel.findOne({ email }).exec();
-    return document ? this.documentToUser(document) : null;
+    const record = await this.prisma.user.findUnique({ where: { email } });
+    return record ? this.toDomain(record) : null;
   }
 
   public async create(data: CreateUserData): Promise<User> {
-    const document = await new this.userModel(data).save();
-    return this.documentToUser(document);
+    const record = await this.prisma.user.create({ data });
+    return this.toDomain(record);
   }
 
   public async updatePasswordHash(
     id: string,
     passwordHash: string,
   ): Promise<User | null> {
-    const document = await this.userModel
-      .findByIdAndUpdate(id, { passwordHash }, { new: true })
-      .exec();
-    return document ? this.documentToUser(document) : null;
+    const result = await this.prisma.user.updateMany({
+      where: { id },
+      data: { passwordHash },
+    });
+
+    if (result.count === 0) {
+      return null;
+    }
+
+    return this.findById(id);
   }
 
   public async deleteById(id: string): Promise<void> {
-    await this.userModel.findByIdAndDelete(id).exec();
+    await this.prisma.user.deleteMany({ where: { id } });
   }
 }

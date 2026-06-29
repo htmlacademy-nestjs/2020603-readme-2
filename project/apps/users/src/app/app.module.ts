@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigType } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
 import { AuthenticationModule } from './authentication/authentication.module';
-import { appConfig, mongoConfig, validateEnv } from './config';
-import { getMongoConnectionString } from './helpers/mongo.helpers';
+import { PrismaModule } from './prisma/prisma.module';
+import { appConfig, jwtConfig, postgresConfig, validateEnv } from './config';
 
 @Module({
   imports: [
@@ -14,15 +13,10 @@ import { getMongoConnectionString } from './helpers/mongo.helpers';
       isGlobal: true,
       cache: true,
       envFilePath: 'apps/users/.env',
-      load: [appConfig, mongoConfig],
+      load: [appConfig, postgresConfig, jwtConfig],
       validate: validateEnv,
     }),
-    MongooseModule.forRootAsync({
-      inject: [mongoConfig.KEY],
-      useFactory: (config: ConfigType<typeof mongoConfig>) => ({
-        uri: getMongoConnectionString(config),
-      }),
-    }),
+    PrismaModule,
     UserModule,
     AuthenticationModule,
   ],

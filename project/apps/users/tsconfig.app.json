@@ -10,7 +10,7 @@
     "emitDeclarationOnly": false,
     "declarationMap": false
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "prisma.config.ts", "prisma/**/*.ts"],
   "exclude": [
     "out-tsc",
     "dist",

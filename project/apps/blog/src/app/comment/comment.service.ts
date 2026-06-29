@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Comment } from '@project/shared-types';
+import type { PaginationResult } from '@project/shared-types';
 import { CommentRepository } from './comment.repository';
 import type { CreateCommentDto } from './dto/create-comment.dto';
+import type { GetCommentQueryDto } from './dto/get-comment-query.dto';
 import { CommentNotFoundError } from './comment.errors';
 
 @Injectable()
@@ -23,8 +25,11 @@ export class CommentService {
     return this.commentRepository.save(comment);
   }
 
-  public async getComments(postId: string, page?: number): Promise<Comment[]> {
-    return this.commentRepository.findByPostId(postId, page);
+  public async getComments(
+    postId: string,
+    query: GetCommentQueryDto,
+  ): Promise<PaginationResult<Comment>> {
+    return this.commentRepository.findByPostId(postId, query);
   }
 
   public async deleteComment(id: string, authorId: string): Promise<void> {

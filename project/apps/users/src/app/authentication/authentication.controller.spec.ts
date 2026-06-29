@@ -9,6 +9,7 @@ describe('AuthenticationController', () => {
     const authenticationServiceMock: Partial<AuthenticationService> = {
       register: jest.fn(),
       verifyUser: jest.fn(),
+      createTokens: jest.fn(),
       getUser: jest.fn(),
       changePassword: jest.fn(),
     };
