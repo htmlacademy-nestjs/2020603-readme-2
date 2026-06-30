@@ -27,3 +27,4 @@ coverage
 # Prisma generated clients
 project/apps/blog/src/generated/
 project/apps/users/src/generated/
+project/apps/notify/src/generated/
