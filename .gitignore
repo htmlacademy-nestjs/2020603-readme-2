@@ -21,6 +21,9 @@ coverage
 # PostgreSQL data directories (docker volumes from compose.yaml)
 **/postgres/
 
+# RabbitMQ data directories (docker volumes from compose.yaml)
+**/rabbitmq/
+
 # Prisma generated clients
 project/apps/blog/src/generated/
 project/apps/users/src/generated/
