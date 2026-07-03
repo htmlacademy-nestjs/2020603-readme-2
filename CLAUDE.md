@@ -27,12 +27,12 @@ HTML Academy "Readme" course: NestJS 11 + Nx 22 monorepo, ESM (`"type": "module"
 
 ## Apps
 - **`users`**: Prisma + PostgreSQL. Registration, login, JWT access/refresh, password change, UUID PKs, bcrypt hashes.
-- **`blog`**: Prisma + PostgreSQL. Posts, comments, likes, subscriptions, feed, filtering, search, pagination, RDO serialization. Still uses `STUB_USER_ID` (no real auth yet).
+- **`blog`**: Prisma + PostgreSQL. Posts, comments, likes, subscriptions, feed, filtering, search, pagination, RDO serialization. Still uses `STUB_USER_ID` (no real auth yet). **Publishes `add.post` to notify's RabbitMQ queue** on post create/repost via `notify-client/` (`ClientProxy.emit`).
 - **`file-storage`**: scaffold; `file/` module not imported into `app.module.ts`.
-- **`notify`**: Prisma + PostgreSQL. Email newsletters (§7). Hybrid app: RabbitMQ consumer (`@EventPattern` `add.subscriber`/`add.post`) + one sync HTTP trigger `POST /api/newsletters`; mail via `@nestjs-modules/mailer` → mailpit. `users`/`blog` don't publish events yet.
+- **`notify`**: Prisma + PostgreSQL. Email newsletters (§7). Hybrid app: RabbitMQ consumer (`@EventPattern` `add.subscriber`/`add.post`) + one sync HTTP trigger `POST /api/newsletters`; mail via `@nestjs-modules/mailer` → mailpit. `blog` publishes `add.post`; `users` doesn't publish `add.subscriber` yet.
 
 ## Shared Libs (import via aliases, never relative paths)
-- `@project/shared-types`: domain classes/enums/interfaces (`User`, post unions, `Comment`, `Like`, `PostType`, `TokenPayload`, `PaginationResult`).
+- `@project/shared-types`: domain classes/enums/interfaces (`User`, post unions, `Comment`, `Like`, `PostType`, `TokenPayload`, `PaginationResult`) + RabbitMQ contract shared by producers/consumer (`RabbitRouting` enum, `PostNotification`).
 - `@project/shared-errors`: domain error base classes + `DomainExceptionFilter`.
 - `@project/shared-config`: `validateEnvironment(schema, config)`.
 

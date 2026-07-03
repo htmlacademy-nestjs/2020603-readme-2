@@ -1,6 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
-import { RabbitRouting } from '../rabbitmq/rabbit-routing.enum';
+import { RabbitRouting } from '@project/shared-types';
 import { NotifyPostService } from './notify-post.service';
 import { CreatePostNotificationDto } from './dto/create-post-notification.dto';
 

@@ -10,6 +10,7 @@ import {
 } from '@project/shared-types';
 import type { PaginationResult, Post } from '@project/shared-types';
 import { PostRepository } from './post.repository';
+import { NotifyClientService } from '../notify-client/notify-client.service';
 import type { GetPostQueryDto } from './dto/get-post-query.dto';
 import type { CreateVideoPostDto } from './dto/create-video-post.dto';
 import type { CreateTextPostDto } from './dto/create-text-post.dto';
@@ -31,7 +32,10 @@ type CreatePostDto =
 
 @Injectable()
 export class PostService {
-  constructor(private readonly postRepository: PostRepository) {}
+  constructor(
+    private readonly postRepository: PostRepository,
+    private readonly notifyClient: NotifyClientService,
+  ) {}
 
   public async createPost(dto: CreatePostDto, authorId: string): Promise<Post> {
     const now = new Date();
@@ -48,7 +52,9 @@ export class PostService {
     post.likesCount = 0;
     post.commentsCount = 0;
 
-    return this.postRepository.save(post);
+    const saved = await this.postRepository.save(post);
+    this.notifyClient.publishNewPost(saved);
+    return saved;
   }
 
   public async findPost(id: string): Promise<Post> {
@@ -123,7 +129,9 @@ export class PostService {
     reposted.likesCount = 0;
     reposted.commentsCount = 0;
 
-    return this.postRepository.save(reposted);
+    const saved = await this.postRepository.save(reposted);
+    this.notifyClient.publishNewPost(saved);
+    return saved;
   }
 
   private normalizeTags(tags: string[]): string[] {

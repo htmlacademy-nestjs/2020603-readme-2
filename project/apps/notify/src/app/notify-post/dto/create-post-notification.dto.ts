@@ -25,7 +25,8 @@ export class CreatePostNotificationDto {
   @IsEnum(PostType)
   public type!: PostType;
 
-  @IsUUID()
+  // Opaque-ссылка на пользователя другого сервиса — не обязательно UUID (STUB_USER_ID).
+  @IsString()
   public authorId!: string;
 
   @Type(() => Date)

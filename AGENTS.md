@@ -37,13 +37,13 @@ HTML Academy "Readme" course project: NestJS 11 + Nx 22 monorepo, ESM, `"type": 
 
 ## Apps
 - `users`: Prisma + PostgreSQL service. Implements registration, login, JWT access/refresh tokens, password change, Prisma-backed user repository, UUID primary keys, bcrypt password hashes.
-- `blog`: Prisma + PostgreSQL service. Implements posts, comments, likes, subscriptions, feed, filtering, search, pagination, and RDO serialization. It still uses `STUB_USER_ID` instead of real auth/API Gateway integration.
+- `blog`: Prisma + PostgreSQL service. Implements posts, comments, likes, subscriptions, feed, filtering, search, pagination, and RDO serialization. It still uses `STUB_USER_ID` instead of real auth/API Gateway integration. Publishes an `add.post` event to notify's RabbitMQ queue on post create/repost via the `notify-client/` feature (`ClientProxy.emit`).
 - `file-storage`: scaffold. A `file/` module exists but is not imported into `app.module.ts`.
-- `notify`: Prisma + PostgreSQL service for email newsletters (§7). Hybrid app: a RabbitMQ consumer (`@EventPattern` for `add.subscriber` and `add.post`) plus one synchronous HTTP trigger `POST /api/newsletters`. Sends mail via `@nestjs-modules/mailer` to a Mailpit fake SMTP. `users`/`blog` do not publish events yet, so the message contracts live inside `notify`.
+- `notify`: Prisma + PostgreSQL service for email newsletters (§7). Hybrid app: a RabbitMQ consumer (`@EventPattern` for `add.subscriber` and `add.post`) plus one synchronous HTTP trigger `POST /api/newsletters`. Sends mail via `@nestjs-modules/mailer` to a Mailpit fake SMTP. `blog` publishes `add.post`; `users` does not publish `add.subscriber` yet. The message contract (`RabbitRouting` enum, `PostNotification`) lives in `@project/shared-types`.
 - No `*-e2e` apps exist, though `nx.json` still lists them in Jest excludes.
 
 ## Shared Libs
-- `@project/shared-types`: domain classes/enums/interfaces (`User`, post union types, `Comment`, `Like`, `PostType`, `TokenPayload`, `PaginationResult`, etc.).
+- `@project/shared-types`: domain classes/enums/interfaces (`User`, post union types, `Comment`, `Like`, `PostType`, `TokenPayload`, `PaginationResult`, etc.), plus the RabbitMQ contract shared by producers and consumer (`RabbitRouting` enum, `PostNotification`).
 - `@project/shared-errors`: domain error base classes and `DomainExceptionFilter`.
 - `@project/shared-config`: `validateEnvironment(schema, config)`.
 
@@ -104,7 +104,7 @@ HTML Academy "Readme" course project: NestJS 11 + Nx 22 monorepo, ESM, `"type": 
 - Prisma schema: `apps/notify/prisma/schema.prisma` (tables `email_subscribers`, `notify_posts`).
 - Runtime Prisma wrapper: `apps/notify/src/app/prisma/`.
 - Hybrid app (`main.ts`): HTTP server plus a RabbitMQ microservice (`Transport.RMQ`, `noAck: true`) bound to the queue `RABBITMQ_QUEUE` (default `readme.notify.income`).
-- Consumers (`@EventPattern`): `add.subscriber` upserts `email_subscribers`; `add.post` upserts `notify_posts`. Routing keys in `apps/notify/src/app/rabbitmq/rabbit-routing.enum.ts`.
+- Consumers (`@EventPattern`): `add.subscriber` upserts `email_subscribers`; `add.post` upserts `notify_posts`. Routing keys are the shared `RabbitRouting` enum in `@project/shared-types`. `blog` is the `add.post` producer (see its `notify-client/` feature); `users` does not yet publish `add.subscriber`.
 - The only synchronous endpoint is `POST /api/newsletters`: emails every subscriber a digest of posts where `notifiedAt IS NULL`, then marks them notified ("publications since the last newsletter", §7.3/§7.5).
 - Mail: `@nestjs-modules/mailer` (+ `nodemailer`) sends to Mailpit; the HTML digest is built in `mail.service.ts`.
 - Internal event payloads are trusted (the global `ValidationPipe`/`DomainExceptionFilter` are not inherited by the consumer); `publishedAt` is coerced to `Date` in the repository.
@@ -175,6 +175,13 @@ POSTGRES_PORT=5433
 POSTGRES_USER=admin
 POSTGRES_PASSWORD=test
 POSTGRES_DB=readme-blog
+
+# RabbitMQ producer — connects to notify's broker (apps/notify/compose.yaml)
+RABBITMQ_HOST=localhost
+RABBITMQ_PORT=5672
+RABBITMQ_USER=admin
+RABBITMQ_PASSWORD=test
+RABBITMQ_QUEUE=readme.notify.income
 
 PGADMIN_DEFAULT_EMAIL=admin@readme.com
 PGADMIN_DEFAULT_PASSWORD=test

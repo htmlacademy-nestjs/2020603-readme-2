@@ -48,6 +48,27 @@ export class EnvironmentVariables {
   @MinLength(1)
   @MaxLength(64)
   public POSTGRES_DB!: string;
+
+  @IsString()
+  @MinLength(1)
+  public RABBITMQ_HOST!: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(65535)
+  public RABBITMQ_PORT!: number;
+
+  @IsString()
+  @MinLength(1)
+  public RABBITMQ_USER!: string;
+
+  @IsString()
+  @MinLength(1)
+  public RABBITMQ_PASSWORD!: string;
+
+  @IsString()
+  @MinLength(1)
+  public RABBITMQ_QUEUE!: string;
 }
 
 export function validateEnv(

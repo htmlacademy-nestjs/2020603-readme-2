@@ -16,3 +16,5 @@ export { Subscription } from './lib/subscription/subscription';
 export { StoredFile } from './lib/file/stored-file';
 export type { TokenPayload } from './lib/token/token-payload.interface';
 export type { PaginationResult } from './lib/common/pagination.interface';
+export { RabbitRouting } from './lib/notify/rabbit-routing.enum.js';
+export type { PostNotification } from './lib/notify/post-notification.interface';
