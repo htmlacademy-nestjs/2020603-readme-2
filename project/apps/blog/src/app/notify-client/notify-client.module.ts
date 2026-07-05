@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { rabbitmqConfig } from '../config';
-import { getRabbitmqConnectionString } from '../helpers/rabbitmq.helpers';
+import { rabbitmqConfig } from '@project/shared-config';
+import { getRabbitmqConnectionString } from '@project/shared-helpers';
 import { NOTIFY_CLIENT } from './notify-client.constant';
 import { NotifyClientService } from './notify-client.service';
 

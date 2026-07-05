@@ -1,4 +1,4 @@
-import type { RabbitmqConfig } from '../config';
+import type { RabbitmqConfig } from '@project/shared-config';
 
 export function getRabbitmqConnectionString(config: RabbitmqConfig): string {
   const { user, password, host, port } = config;

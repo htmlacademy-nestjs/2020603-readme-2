@@ -11,9 +11,8 @@ import {
   appConfig,
   postgresConfig,
   rabbitmqConfig,
-  mailConfig,
-  validateEnv,
-} from './config';
+} from '@project/shared-config';
+import { mailConfig, validateEnv } from './config';
 
 @Module({
   imports: [

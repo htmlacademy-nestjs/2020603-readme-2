@@ -34,7 +34,9 @@ HTML Academy "Readme" course: NestJS 11 + Nx 22 monorepo, ESM (`"type": "module"
 ## Shared Libs (import via aliases, never relative paths)
 - `@project/shared-types`: domain classes/enums/interfaces (`User`, post unions, `Comment`, `Like`, `PostType`, `TokenPayload`, `PaginationResult`) + RabbitMQ contract shared by producers/consumer (`RabbitRouting` enum, `PostNotification`).
 - `@project/shared-errors`: domain error base classes + `DomainExceptionFilter`.
-- `@project/shared-config`: `validateEnvironment(schema, config)`.
+- `@project/shared-config`: `validateEnvironment(schema, config)`, `Environment` enum, and `registerAs` config factories `appConfig`/`postgresConfig`/`rabbitmqConfig` (+ `AppConfig`/`PostgresConfig`/`RabbitmqConfig` interfaces).
+- `@project/shared-helpers`: `fillRdo`/`fillRdoList`/`fillRdoPagination` (RDO serialization) + `getPostgresConnectionString`/`getRabbitmqConnectionString` (build a connection URL from a config object).
+- **Per-app `apps/<app>/src/app/config/` holds only the service's own env schema** (`EnvironmentVariables` + `validateEnv` in `env.validation.ts`), its `index.ts` barrel, and service-specific `registerAs` config (`jwt.config.ts` in `users`, `mail.config.ts` in `notify`). Shared factories/enum/connection-string helpers come from the libs above — no per-app `helpers/` dir.
 
 ## Coding Rules
 - ESM project: use `.js` suffix in runtime ESM imports where required by generated/runtime scripts.

@@ -7,13 +7,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { validateEnvironment } from '@project/shared-config';
-
-export enum Environment {
-  Development = 'development',
-  Production = 'production',
-  Test = 'test',
-}
+import { Environment, validateEnvironment } from '@project/shared-config';
 
 export class EnvironmentVariables {
   @IsEnum(Environment)

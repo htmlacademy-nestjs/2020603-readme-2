@@ -1,4 +1,4 @@
-import type { PostgresConfig } from '../config';
+import type { PostgresConfig } from '@project/shared-config';
 
 export function getPostgresConnectionString(config: PostgresConfig): string {
   const { user, password, host, port, database } = config;

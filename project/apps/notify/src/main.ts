@@ -6,8 +6,8 @@ import type { MicroserviceOptions } from '@nestjs/microservices';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { DomainExceptionFilter } from '@project/shared-errors';
 import { AppModule } from './app/app.module';
-import { getRabbitmqConnectionString } from './app/helpers/rabbitmq.helpers';
-import type { RabbitmqConfig } from './app/config';
+import { getRabbitmqConnectionString } from '@project/shared-helpers';
+import type { RabbitmqConfig } from '@project/shared-config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
