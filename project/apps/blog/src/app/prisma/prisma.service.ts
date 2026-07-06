@@ -8,8 +8,8 @@ import {
 import type { ConfigType } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../generated/prisma/client';
-import { postgresConfig } from '../config';
-import { getPostgresConnectionString } from '../helpers/postgres.helpers';
+import { postgresConfig } from '@project/shared-config';
+import { getPostgresConnectionString } from '@project/shared-helpers';
 
 @Injectable()
 export class PrismaService

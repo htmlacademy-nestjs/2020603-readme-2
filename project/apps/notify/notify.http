@@ -1,0 +1,10 @@
+@host = http://localhost:3003/api
+
+### Healthcheck / корневой маршрут
+GET {{host}}
+
+### Запустить рассылку дайджеста новых публикаций всем подписчикам (§7.5)
+# Перед запуском наполните очередь событиями:
+#   tsx apps/notify/tools/rabbit-publish.ts
+# Затем проверьте письма в Mailpit: http://localhost:8025
+POST {{host}}/newsletters

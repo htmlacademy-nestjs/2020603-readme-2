@@ -5,6 +5,36 @@
   "nx": {
     "name": "notify",
     "targets": {
+      "db-validate": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma validate --config apps/notify/prisma.config.ts"
+        }
+      },
+      "db-generate": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma generate --config apps/notify/prisma.config.ts"
+        }
+      },
+      "db-migrate": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma migrate dev --config apps/notify/prisma.config.ts"
+        }
+      },
+      "db-reset": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma migrate reset --force --config apps/notify/prisma.config.ts"
+        }
+      },
+      "db-fill": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma db seed --config apps/notify/prisma.config.ts"
+        }
+      },
       "build": {
         "executor": "nx:run-commands",
         "options": {

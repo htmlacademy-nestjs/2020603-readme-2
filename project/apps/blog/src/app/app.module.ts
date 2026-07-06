@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { appConfig, postgresConfig, validateEnv } from './config';
+import {
+  appConfig,
+  postgresConfig,
+  rabbitmqConfig,
+} from '@project/shared-config';
+import { validateEnv } from './config';
 import { PrismaModule } from './prisma/prisma.module';
 import { PostModule } from './post/post.module';
 import { CommentModule } from './comment/comment.module';
@@ -13,7 +18,7 @@ import { SubscriptionModule } from './subscription/subscription.module';
       isGlobal: true,
       cache: true,
       envFilePath: 'apps/blog/.env',
-      load: [appConfig, postgresConfig],
+      load: [appConfig, postgresConfig, rabbitmqConfig],
       validate: validateEnv,
     }),
     PrismaModule,

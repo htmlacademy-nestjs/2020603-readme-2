@@ -5,7 +5,8 @@ import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
 import { AuthenticationModule } from './authentication/authentication.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { appConfig, jwtConfig, postgresConfig, validateEnv } from './config';
+import { appConfig, postgresConfig } from '@project/shared-config';
+import { jwtConfig, validateEnv } from './config';
 
 @Module({
   imports: [
