@@ -75,4 +75,5 @@ GET {{host}}/files/abc
 POST {{host}}/files/avatar
 Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
 
+------WebKitFormBoundary
 ------WebKitFormBoundary--
