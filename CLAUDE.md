@@ -28,7 +28,7 @@ HTML Academy "Readme" course: NestJS 11 + Nx 22 monorepo, ESM (`"type": "module"
 ## Apps
 - **`users`**: Prisma + PostgreSQL. Registration, login, JWT access/refresh, password change, UUID PKs, bcrypt hashes.
 - **`blog`**: Prisma + PostgreSQL. Posts, comments, likes, subscriptions, feed, filtering, search, pagination, RDO serialization. Still uses `STUB_USER_ID` (no real auth yet). **Publishes `add.post` to notify's RabbitMQ queue** on post create/repost via `notify-client/` (`ClientProxy.emit`).
-- **`file-storage`**: scaffold; `file/` module not imported into `app.module.ts`.
+- **`file-storage`**: Prisma + PostgreSQL (metadata) + filesystem (binaries). Upload/serve files (avatars, photo-posts). Endpoints: `POST /api/files/avatar` (≤ 500 КБ), `POST /api/files/photo` (≤ 1 МБ) — both jpeg/png only, validated by magic bytes (`FileTypeValidator` in Nest 11 uses `file-type@21.3.4` on `file.buffer`, memory storage); `GET /api/files/:fileId` returns metadata + ready absolute `url`. Statics served via `app.useStaticAssets` (`NestExpressApplication`) under `/static` (outside the `api` prefix), no `@nestjs/serve-static` dependency. `FileModule` imported into `AppModule`. Sample fixtures + REST Client smoke in `apps/file-storage/file-storage.http`.
 - **`notify`**: Prisma + PostgreSQL. Email newsletters (§7). Hybrid app: RabbitMQ consumer (`@EventPattern` `add.subscriber`/`add.post`) + one sync HTTP trigger `POST /api/newsletters`; mail via `@nestjs-modules/mailer` → mailpit. `blog` publishes `add.post`; `users` doesn't publish `add.subscriber` yet.
 
 ## Shared Libs (import via aliases, never relative paths)
@@ -72,7 +72,9 @@ HTML Academy "Readme" course: NestJS 11 + Nx 22 monorepo, ESM (`"type": "module"
 ## Gotchas
 - Numeric env vars need explicit `: number` types in `EnvironmentVariables`, else SWC decorator metadata mis-converts strings.
 - Post create DTO `type` fields need validators like `@Equals(PostType.X)`, else `ValidationPipe({ whitelist: true })` strips them.
-- Host ports: `blog` Postgres `5433`, `users` Postgres `5434`, `notify` Postgres `5435` (avoid local `5432` conflict). `notify` also: RabbitMQ `5672`/`15672`, Mailpit `1025`/`8025`, pgAdmin `8084`.
+- Host ports: `blog` Postgres `5433`, `users` Postgres `5434`, `notify` Postgres `5435`, `file-storage` app `3004` / Postgres `5436` / pgAdmin `8085` (avoid local `5432` conflict). `notify` also: RabbitMQ `5672`/`15672`, Mailpit `1025`/`8025`, pgAdmin `8084`.
+- `@IsUrl()` defaults reject `http://localhost:...` URLs — needs `require_tld: false` (set in `file-storage` env validation for `STATIC_BASE_URL`). Downstream DTOs in `users` (`avatarUrl`) and `blog` (`photoUrl`) still use the default and will reject localhost URLs — fix in a future integration task.
+- `FileTypeValidator` (Nest 11) validates by magic bytes via `file-type@21.3.4` on `file.buffer`; needs multer memory storage (the default — do not switch to disk storage). Regex matches the *detected* mime (`image/jpeg`, not `image/jpg`).
 - pgAdmin rejects reserved domains (`admin@readme.local`); use `admin@readme.com`.
 - `tsconfig.app.json` intentionally includes `prisma.config.ts` and `prisma/**/*.ts` so `import.meta` compiles.
 - `.env` files are git-ignored — recreate manually. Old Mongo data under `apps/users/mongodb/` is unused.
@@ -81,6 +83,7 @@ HTML Academy "Readme" course: NestJS 11 + Nx 22 monorepo, ESM (`"type": "module"
 - Users: `docker compose -f apps/users/compose.yaml up -d` → DB `localhost:5434` `readme-users` (admin/test), pgAdmin `http://localhost:8083`.
 - Blog: `docker compose -f apps/blog/compose.yaml up -d` → DB `localhost:5433` `readme-blog` (admin/test), pgAdmin `http://localhost:8082`.
 - Notify: `docker compose -f apps/notify/compose.yaml up -d` → RabbitMQ AMQP `localhost:5672` + UI `http://localhost:15672` (admin/test), DB `localhost:5435` `readme-notify` (admin/test), pgAdmin `http://localhost:8084`, Mailpit SMTP `localhost:1025` + UI `http://localhost:8025`.
+- File-storage: `docker compose -f apps/file-storage/compose.yaml up -d` → DB `localhost:5436` `readme-file-storage` (admin/test), pgAdmin `http://localhost:8085`. App on `http://localhost:3004/api`, static files at `http://localhost:3004/static`.
 - Renamed-from-Mongo containers: add `--remove-orphans`. Credential changes ignored → stop compose, remove `apps/<app>/postgres`, restart.
 
 ## Git

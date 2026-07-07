@@ -28,3 +28,7 @@ coverage
 project/apps/blog/src/generated/
 project/apps/users/src/generated/
 project/apps/notify/src/generated/
+project/apps/file-storage/src/generated/
+
+# file-storage uploads (docker volume target / runtime artifacts)
+project/apps/file-storage/uploads/
