@@ -67,6 +67,13 @@ POST {{host}}/posts/{{createPost.response.body.id}}/likes
 DELETE {{host}}/posts/{{createPost.response.body.id}}/likes
 
 ############################################################
+# SUBSCRIPTIONS — count / create / delete
+############################################################
+
+### READ: количество подписчиков пользователя
+GET {{host}}/subscriptions/followers/{{createPost.response.body.authorId}}/count
+
+############################################################
 # Запасной вариант — ручная подстановка id
 # Если переменные {{createPost.response.body.$.id}} не подхватываются
 # в вашей версии клиента, раскомментируйте и подставьте id вручную:

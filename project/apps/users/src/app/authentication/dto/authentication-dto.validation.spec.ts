@@ -60,6 +60,17 @@ describe('Authentication DTO validation', () => {
     ).resolves.toBeInstanceOf(CreateUserDto);
   });
 
+  it('accepts localhost avatarUrl (file-storage statics, require_tld:false)', async () => {
+    await expect(
+      transformDto(CreateUserDto, {
+        email: 'user@example.com',
+        name: 'Иван Иванов',
+        password: 'secret123',
+        avatarUrl: 'http://localhost:3004/static/avatars/2026/01/abc.jpg',
+      }),
+    ).resolves.toBeInstanceOf(CreateUserDto);
+  });
+
   it('rejects invalid registration data with all field errors', async () => {
     const messages = await getValidationMessages(
       transformDto(CreateUserDto, {

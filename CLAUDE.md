@@ -12,7 +12,7 @@ HTML Academy "Readme" course: NestJS 11 + Nx 22 monorepo, ESM (`"type": "module"
 
 ## Commands (run from `project/`)
 - Install: `npm install`
-- Serve: `npx nx serve users` | `npx nx serve blog`
+- Serve: `npx nx serve users` | `npx nx serve blog` | `npx nx serve notify` | `npx nx serve file-storage` | `npx nx serve api-gateway`
 - Build: `npx nx build <app>` — **main compile check**
 - Lint: `npx nx lint <app>` | all: `npx nx run-many -t lint`
 - Test: `npx nx test <app>` | all: `npx nx run-many -t test` | focused: `npx nx test <app> -t "<name>"`
@@ -30,13 +30,14 @@ HTML Academy "Readme" course: NestJS 11 + Nx 22 monorepo, ESM (`"type": "module"
 - **`blog`**: Prisma + PostgreSQL. Posts, comments, likes, subscriptions, feed, filtering, search, pagination, RDO serialization. Still uses `STUB_USER_ID` (no real auth yet). **Publishes `add.post` to notify's RabbitMQ queue** on post create/repost via `notify-client/` (`ClientProxy.emit`).
 - **`file-storage`**: Prisma + PostgreSQL (metadata) + filesystem (binaries). Upload/serve files (avatars, photo-posts). Endpoints: `POST /api/files/avatar` (≤ 500 КБ), `POST /api/files/photo` (≤ 1 МБ) — both jpeg/png only, validated by magic bytes (`FileTypeValidator` in Nest 11 uses `file-type@21.3.4` on `file.buffer`, memory storage); `GET /api/files/:fileId` returns metadata + ready absolute `url`. Statics served via `app.useStaticAssets` (`NestExpressApplication`) under `/static` (outside the `api` prefix), no `@nestjs/serve-static` dependency. `FileModule` imported into `AppModule`. Sample fixtures + REST Client smoke in `apps/file-storage/file-storage.http`.
 - **`notify`**: Prisma + PostgreSQL. Email newsletters (§7). Hybrid app: RabbitMQ consumer (`@EventPattern` `add.subscriber`/`add.post`) + one sync HTTP trigger `POST /api/newsletters`; mail via `@nestjs-modules/mailer` → mailpit. `blog` publishes `add.post`; `users` doesn't publish `add.subscriber` yet.
+- **`api-gateway`** (port 3005): Stateless presentation layer — no Prisma, no compose, no DB. Locally verifies JWT (`@nestjs/jwt`, secret duplicated from `users` `.env`). Proxies HTTP to the 4 downstream services via `@nestjs/axios`. Aggregates: authors in posts/comments, user cards in subscriptions, profile counts (`postsCount` from blog `totalItems`, `subscribersCount` from blog `followers/:userId/count`). Multipart pass-through: `POST /api/auth/register` (avatar → file-storage → users), `POST /api/posts/photo` (photo → file-storage → blog). `@Catch(AxiosError)` filter passes through downstream status+body; network errors → 503. Blog still uses `STUB_USER_ID` — posts created through the gateway are attributed to the stub user; passing real `userId` from the token into blog is a future integration task. Swagger at `/spec` with `.addBearerAuth()`. Needs all 4 services running. Smoke in `apps/api-gateway/api-gateway.http`.
 
 ## Shared Libs (import via aliases, never relative paths)
 - `@project/shared-types`: domain classes/enums/interfaces (`User`, post unions, `Comment`, `Like`, `PostType`, `TokenPayload`, `PaginationResult`) + RabbitMQ contract shared by producers/consumer (`RabbitRouting` enum, `PostNotification`).
 - `@project/shared-errors`: domain error base classes + `DomainExceptionFilter`.
 - `@project/shared-config`: `validateEnvironment(schema, config)`, `Environment` enum, and `registerAs` config factories `appConfig`/`postgresConfig`/`rabbitmqConfig` (+ `AppConfig`/`PostgresConfig`/`RabbitmqConfig` interfaces).
 - `@project/shared-helpers`: `fillRdo`/`fillRdoList`/`fillRdoPagination` (RDO serialization) + `getPostgresConnectionString`/`getRabbitmqConnectionString` (build a connection URL from a config object).
-- **Per-app `apps/<app>/src/app/config/` holds only the service's own env schema** (`EnvironmentVariables` + `validateEnv` in `env.validation.ts`), its `index.ts` barrel, and service-specific `registerAs` config (`jwt.config.ts` in `users`, `mail.config.ts` in `notify`). Shared factories/enum/connection-string helpers come from the libs above — no per-app `helpers/` dir.
+- **Per-app `apps/<app>/src/app/config/` holds only the service's own env schema** (`EnvironmentVariables` + `validateEnv` in `env.validation.ts`), its `index.ts` barrel, and service-specific `registerAs` config (`jwt.config.ts` in `users`, `mail.config.ts` in `notify`, `storage.config.ts` in `file-storage`, `services.config.ts` + `jwt.config.ts` in `api-gateway`). Shared factories/enum/connection-string helpers come from the libs above — no per-app `helpers/` dir.
 
 ## Coding Rules
 - ESM project: use `.js` suffix in runtime ESM imports where required by generated/runtime scripts.
@@ -67,13 +68,24 @@ HTML Academy "Readme" course: NestJS 11 + Nx 22 monorepo, ESM (`"type": "module"
 - `likesCount`/`commentsCount` come from Prisma `_count` — **do not maintain counters manually**.
 - Tags are many-to-many, normalized to lowercase in service logic. Feed = subscriptions + own posts.
 - `authorId`, `userId`, `followerId`, `followingId`, `originalAuthorId` are opaque Users ids.
+- New endpoint `GET /api/subscriptions/followers/:userId/count` → `{ count }` (added for API Gateway profile aggregation).
 - Smoke examples in `apps/blog/blog.http`.
+
+### API Gateway
+- Stateless (port 3005): no Prisma, no compose, no DB. `JWT_ACCESS_TOKEN_SECRET` must match `apps/users/.env` byte-for-byte.
+- `@nestjs/axios` (`HttpModule.registerAsync`) proxies to 4 downstream services. `ClientsModule` exports 4 clients + `HttpModule` (so `HttpService` is available via DI). `@Catch(AxiosError)` filter passes through status+body; network errors → 503.
+- `JwtAuthGuard` verifies Bearer locally; `@CurrentUser('sub')` gives user id. `@ApiBearerAuth()` on protected routes.
+- Author enrichment: `UsersClient.getUserInfoMap(ids)` — non-UUID `stub-user-id` → `null`. Nested RDOs need `@Type(() => UserInfoRdo)`.
+- Multipart pass-through: register (avatar → file-storage → users), photo post (photo → file-storage → blog). Limits duplicated in `common/upload.constant.ts`.
+- Gateway create-DTOs omit `type`; service adds it before calling blog. `UpdatePostDto` is all-optional.
+- `GET /api/users/:id` aggregates `postsCount` (blog `totalItems`) + `subscribersCount` (blog `followers/:userId/count`).
+- Blog still uses `STUB_USER_ID` — gateway posts are attributed to stub user. Smoke in `apps/api-gateway/api-gateway.http`.
 
 ## Gotchas
 - Numeric env vars need explicit `: number` types in `EnvironmentVariables`, else SWC decorator metadata mis-converts strings.
 - Post create DTO `type` fields need validators like `@Equals(PostType.X)`, else `ValidationPipe({ whitelist: true })` strips them.
-- Host ports: `blog` Postgres `5433`, `users` Postgres `5434`, `notify` Postgres `5435`, `file-storage` app `3004` / Postgres `5436` / pgAdmin `8085` (avoid local `5432` conflict). `notify` also: RabbitMQ `5672`/`15672`, Mailpit `1025`/`8025`, pgAdmin `8084`.
-- `@IsUrl()` defaults reject `http://localhost:...` URLs — needs `require_tld: false` (set in `file-storage` env validation for `STATIC_BASE_URL`). Downstream DTOs in `users` (`avatarUrl`) and `blog` (`photoUrl`) still use the default and will reject localhost URLs — fix in a future integration task.
+- Host ports: `blog` Postgres `5433`, `users` Postgres `5434`, `notify` Postgres `5435`, `file-storage` app `3004` / Postgres `5436` / pgAdmin `8085` (avoid local `5432` conflict). `notify` also: RabbitMQ `5672`/`15672`, Mailpit `1025`/`8025`, pgAdmin `8084`. `api-gateway` app `3005` (stateless, no DB/compose).
+- `@IsUrl()` defaults reject `http://localhost:...` URLs — needs `require_tld: false`. Fixed: `file-storage` (`STATIC_BASE_URL`), `users` (`avatarUrl`), `blog` (`photoUrl`), and `api-gateway` (all `*_SERVICE_URL`). Gateway's `UpdatePostDto` also uses `require_tld: false` for `photoUrl`/`link`.
 - `FileTypeValidator` (Nest 11) validates by magic bytes via `file-type@21.3.4` on `file.buffer`; needs multer memory storage (the default — do not switch to disk storage). Regex matches the *detected* mime (`image/jpeg`, not `image/jpg`).
 - pgAdmin rejects reserved domains (`admin@readme.local`); use `admin@readme.com`.
 - `tsconfig.app.json` intentionally includes `prisma.config.ts` and `prisma/**/*.ts` so `import.meta` compiles.
@@ -84,6 +96,7 @@ HTML Academy "Readme" course: NestJS 11 + Nx 22 monorepo, ESM (`"type": "module"
 - Blog: `docker compose -f apps/blog/compose.yaml up -d` → DB `localhost:5433` `readme-blog` (admin/test), pgAdmin `http://localhost:8082`.
 - Notify: `docker compose -f apps/notify/compose.yaml up -d` → RabbitMQ AMQP `localhost:5672` + UI `http://localhost:15672` (admin/test), DB `localhost:5435` `readme-notify` (admin/test), pgAdmin `http://localhost:8084`, Mailpit SMTP `localhost:1025` + UI `http://localhost:8025`.
 - File-storage: `docker compose -f apps/file-storage/compose.yaml up -d` → DB `localhost:5436` `readme-file-storage` (admin/test), pgAdmin `http://localhost:8085`. App on `http://localhost:3004/api`, static files at `http://localhost:3004/static`.
+- API Gateway: **no compose** — stateless. App on `http://localhost:3005/api`, Swagger `http://localhost:3005/spec`. Requires all 4 downstream services running. `.env` must have `JWT_ACCESS_TOKEN_SECRET` byte-identical to `apps/users/.env`.
 - Renamed-from-Mongo containers: add `--remove-orphans`. Credential changes ignored → stop compose, remove `apps/<app>/postgres`, restart.
 
 ## Git

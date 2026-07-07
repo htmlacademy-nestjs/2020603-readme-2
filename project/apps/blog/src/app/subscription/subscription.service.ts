@@ -15,6 +15,10 @@ export class SubscriptionService {
     return this.subscriptionRepository.findByFollower(followerId);
   }
 
+  public async countFollowers(followingId: string): Promise<number> {
+    return this.subscriptionRepository.countByFollowing(followingId);
+  }
+
   public async subscribe(
     followerId: string,
     followingId: string,
