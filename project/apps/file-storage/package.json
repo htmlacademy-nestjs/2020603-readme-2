@@ -5,6 +5,30 @@
   "nx": {
     "name": "file-storage",
     "targets": {
+      "db-validate": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma validate --config apps/file-storage/prisma.config.ts"
+        }
+      },
+      "db-generate": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma generate --config apps/file-storage/prisma.config.ts"
+        }
+      },
+      "db-migrate": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma migrate dev --config apps/file-storage/prisma.config.ts"
+        }
+      },
+      "db-reset": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "prisma migrate reset --force --config apps/file-storage/prisma.config.ts"
+        }
+      },
       "build": {
         "executor": "nx:run-commands",
         "options": {

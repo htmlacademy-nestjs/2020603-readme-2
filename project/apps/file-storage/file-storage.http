@@ -1,0 +1,79 @@
+### File Storage Service — загрузка/отдача файлов (REST Client / WebStorm HTTP Client)
+### Запуск сервиса: npx nx serve file-storage  (порт из apps/file-storage/.env: 3004)
+
+@host = http://localhost:3004/api
+
+############################################################
+# UPLOAD — avatar (jpeg/png, до 500 КБ)
+############################################################
+
+### UPLOAD avatar: multipart POST /files/avatar (запоминаем ответ как uploadAvatar)
+# @name uploadAvatar
+POST {{host}}/files/avatar
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="avatar.jpg"
+Content-Type: image/jpeg
+
+< ./sample/avatar.jpg
+------WebKitFormBoundary--
+
+############################################################
+# UPLOAD — photo (jpeg/png, до 1 МБ)
+############################################################
+
+### UPLOAD photo: multipart POST /files/photo (запоминаем ответ как uploadPhoto)
+# @name uploadPhoto
+POST {{host}}/files/photo
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="photo.png"
+Content-Type: image/png
+
+< ./sample/photo.png
+------WebKitFormBoundary--
+
+############################################################
+# READ — метаданные файла по id
+############################################################
+
+### READ: информация о файле (берётся id из ответа uploadAvatar)
+GET {{host}}/files/{{uploadAvatar.response.body.id}}
+
+############################################################
+# READ — бинарник через статику (вне префикса /api)
+############################################################
+
+### READ: скачать файл по url из ответа uploadAvatar
+GET {{uploadAvatar.response.body.url}}
+
+############################################################
+# NEGATIVE — валидация
+############################################################
+
+### NEGATIVE: спуфнутый тип (not-an-image.jpg;type=image/jpeg) → 400 (магические байты)
+# @name spoofType
+POST {{host}}/files/avatar
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="not-an-image.jpg"
+Content-Type: image/jpeg
+
+< ./sample/not-an-image.jpg
+------WebKitFormBoundary--
+
+### NEGATIVE: неизвестный uuid → 404
+GET {{host}}/files/2f4b7d3a-3c1b-4c4d-8b6a-8ef7b92f1011
+
+### NEGATIVE: не-uuid идентификатор → 400 (без P2023 в логах)
+GET {{host}}/files/abc
+
+### NEGATIVE: POST без файла → 400 "File is required"
+POST {{host}}/files/avatar
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+------WebKitFormBoundary--

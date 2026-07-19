@@ -58,4 +58,10 @@ export class SubscriptionRepository {
       where: { followerId_followingId: { followerId, followingId } },
     });
   }
+
+  public async countByFollowing(followingId: string): Promise<number> {
+    return this.prisma.subscription.count({
+      where: { followingId },
+    });
+  }
 }

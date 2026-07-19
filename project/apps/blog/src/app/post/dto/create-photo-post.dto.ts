@@ -15,7 +15,7 @@ export class CreatePhotoPostDto {
   public readonly type = PostType.Photo;
 
   @ApiProperty({ example: 'https://example.com/photo.jpg', description: 'URL фотографии (jpg/png, до 1 МБ)' })
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   public photoUrl!: string;
 
   @ApiProperty({ example: ['photo', 'nature'], required: false })

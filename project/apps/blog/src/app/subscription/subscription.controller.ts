@@ -20,7 +20,9 @@ import {
 } from '@nestjs/swagger';
 import { fillRdo, fillRdoList } from '@project/shared-helpers';
 import { STUB_USER_ID } from '../app.constant';
+import { FollowersCountParamDto } from './dto/followers-count-param.dto';
 import { SubscriptionParamDto } from './dto/subscription-param.dto';
+import { FollowersCountRdo } from './rdo/followers-count.rdo';
 import { SubscriptionRdo } from './rdo/subscription.rdo';
 import { SubscriptionService } from './subscription.service';
 
@@ -40,6 +42,24 @@ export class SubscriptionController {
       STUB_USER_ID,
     );
     return fillRdoList(SubscriptionRdo, subscriptions);
+  }
+
+  @Get('followers/:userId/count')
+  @ApiOperation({ summary: 'Получить количество подписчиков пользователя' })
+  @ApiParam({
+    name: 'userId',
+    description: 'Идентификатор пользователя, чьих подписчиков считаем',
+  })
+  @ApiOkResponse({
+    description: 'Количество подписчиков пользователя',
+    type: FollowersCountRdo,
+  })
+  @ApiBadRequestResponse({ description: 'Невалидный идентификатор пользователя' })
+  public async followersCount(
+    @Param() params: FollowersCountParamDto,
+  ): Promise<FollowersCountRdo> {
+    const count = await this.subscriptionService.countFollowers(params.userId);
+    return fillRdo(FollowersCountRdo, { count });
   }
 
   @Post(':followingId')

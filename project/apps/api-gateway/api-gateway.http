@@ -1,0 +1,289 @@
+### API Gateway — полный smoke (REST Client / WebStorm HTTP Client)
+### Запуск: npx nx serve api-gateway  (порт 3005)
+### Предварительно поднять 4 сервиса: users (3001), blog (3002), notify (3003), file-storage (3004)
+
+@host = http://localhost:3005/api
+@token = {{login.response.body.accessToken}}
+
+############################################################
+# AUTH — register / login / password
+############################################################
+
+### REGISTER: multipart-регистрация с аватаром (≤500 КБ jpeg/png)
+# @name register
+POST {{host}}/auth/register
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="email"
+
+alice@example.com
+--boundary
+Content-Disposition: form-data; name="name"
+
+Алиса Иванова
+--boundary
+Content-Disposition: form-data; name="password"
+
+secret123
+--boundary
+Content-Disposition: form-data; name="avatar"; filename="avatar.jpg"
+Content-Type: image/jpeg
+
+< ../file-storage/sample/avatar.jpg
+--boundary--
+
+### REGISTER: без аватара (JSON не поддерживается — нужен multipart)
+POST {{host}}/auth/register
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="email"
+
+bob@example.com
+--boundary
+Content-Disposition: form-data; name="name"
+
+Боб Петров
+--boundary
+Content-Disposition: form-data; name="password"
+
+secret456
+--boundary--
+
+### LOGIN: вход (запоминаем токен как login)
+# @name login
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@example.com",
+  "password": "secret123"
+}
+
+### PASSWORD: смена пароля (Bearer, id из токена)
+PATCH {{host}}/auth/password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "currentPassword": "secret123",
+  "newPassword": "new12345"
+}
+
+### 401: смена пароля без токена
+PATCH {{host}}/auth/password
+Content-Type: application/json
+
+{
+  "currentPassword": "secret123",
+  "newPassword": "new12345"
+}
+
+### 409: повторная регистрация того же email
+POST {{host}}/auth/register
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="email"
+
+alice@example.com
+--boundary
+Content-Disposition: form-data; name="name"
+
+Алиса Дубль
+--boundary
+Content-Disposition: form-data; name="password"
+
+secret123
+--boundary--
+
+############################################################
+# USERS — профиль с агрегированными счётчиками
+############################################################
+
+### Получить профиль пользователя (id из register)
+GET {{host}}/users/{{register.response.body.id}}
+
+############################################################
+# POSTS — CRUD с обогащением авторов
+############################################################
+
+### CREATE: текстовый пост (Bearer)
+# @name createPost
+POST {{host}}/posts/text
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Мой первый пост о TypeScript разработке",
+  "announce": "Краткий анонс публикации, который заинтересует читателя и расскажет о сути материала.",
+  "text": "Полный текст публикации о том, как мы подключили PostgreSQL и Prisma ORM к сервису Blog, и что из этого вышло на практике.",
+  "tags": ["typescript", "nestjs"]
+}
+
+### CREATE: видео-пост (Bearer)
+POST {{host}}/posts/video
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Как выучить TypeScript за двадцать минут",
+  "videoUrl": "https://www.youtube.com/watch?v=abc123def",
+  "tags": ["typescript", "video"]
+}
+
+### CREATE: цитата (Bearer)
+POST {{host}}/posts/quote
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "quoteText": "Любая достаточно продвинутая технология неотличима от магии.",
+  "quoteAuthor": "Артур Кларк",
+  "tags": ["science"]
+}
+
+### CREATE: ссылка (Bearer)
+POST {{host}}/posts/link
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "link": "https://nestjs.com",
+  "description": "Официальный сайт NestJS",
+  "tags": ["nestjs", "framework"]
+}
+
+### CREATE PHOTO: фото-пост (multipart, Bearer, ≤1 МБ jpeg/png)
+# @name createPhotoPost
+POST {{host}}/posts/photo
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="photo"; filename="photo.png"
+Content-Type: image/png
+
+< ../file-storage/sample/photo.png
+--boundary
+Content-Disposition: form-data; name="tags"
+
+photo,nature
+--boundary--
+
+### READ: список публикаций (авторы обогащены, у stub-постов author: null)
+GET {{host}}/posts
+
+### READ: список с фильтрами
+GET {{host}}/posts?limit=5&page=1&sortBy=likes&type=text&tag=typescript
+
+### READ: одна публикация по id (берётся из createPost)
+GET {{host}}/posts/{{createPost.response.body.id}}
+
+### READ: 404 — несуществующий пост
+GET {{host}}/posts/nonexistent-uuid-0000-0000-0000-000000000000
+
+### SEARCH: поиск по заголовку
+GET {{host}}/posts/search?title=TypeScript
+
+### FEED: лента текущего пользователя (Bearer)
+GET {{host}}/posts/feed
+Authorization: Bearer {{token}}
+
+### DRAFTS: черновики (Bearer)
+GET {{host}}/posts/drafts
+Authorization: Bearer {{token}}
+
+### UPDATE: обновить публикацию (по id из createPost)
+PATCH {{host}}/posts/{{createPost.response.body.id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Обновлённый заголовок поста о TypeScript",
+  "tags": ["typescript", "prisma"]
+}
+
+### REPOST: репостнуть публикацию (по id из createPost)
+POST {{host}}/posts/{{createPost.response.body.id}}/repost
+Authorization: Bearer {{token}}
+
+### DELETE: удалить публикацию (по id из createPost)
+DELETE {{host}}/posts/{{createPost.response.body.id}}
+Authorization: Bearer {{token}}
+
+############################################################
+# COMMENTS — create / list / delete (для createPhotoPost)
+############################################################
+
+### CREATE: комментарий (Bearer)
+# @name createComment
+POST {{host}}/posts/{{createPhotoPost.response.body.id}}/comments
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "text": "Отличная фотография, спасибо за подробности!"
+}
+
+### READ: комментарии к посту (с обогащением авторов)
+GET {{host}}/posts/{{createPhotoPost.response.body.id}}/comments
+
+### DELETE: удалить комментарий (по id из createComment)
+DELETE {{host}}/posts/{{createPhotoPost.response.body.id}}/comments/{{createComment.response.body.id}}
+Authorization: Bearer {{token}}
+
+############################################################
+# LIKES — add / remove (для createPhotoPost)
+############################################################
+
+### ADD: поставить лайк (Bearer)
+POST {{host}}/posts/{{createPhotoPost.response.body.id}}/likes
+Authorization: Bearer {{token}}
+
+### REMOVE: убрать лайк (Bearer)
+DELETE {{host}}/posts/{{createPhotoPost.response.body.id}}/likes
+Authorization: Bearer {{token}}
+
+############################################################
+# SUBSCRIPTIONS — list / subscribe / unsubscribe
+############################################################
+
+### SUBSCRIBE: подписаться на пользователя (id из register)
+# @name subscribe
+POST {{host}}/subscriptions/{{register.response.body.id}}
+Authorization: Bearer {{token}}
+
+### READ: список подписок (с карточками пользователей)
+GET {{host}}/subscriptions
+Authorization: Bearer {{token}}
+
+### PROFILE: проверить subscribersCount после подписки
+GET {{host}}/users/{{register.response.body.id}}
+
+### UNSUBSCRIBE: отписаться (Bearer)
+DELETE {{host}}/subscriptions/{{register.response.body.id}}
+Authorization: Bearer {{token}}
+
+############################################################
+# NEWSLETTERS — запуск рассылки
+############################################################
+
+### TRIGGER: запуск рассылки дайджеста (Bearer)
+POST {{host}}/newsletters
+Authorization: Bearer {{token}}
+
+############################################################
+# ERROR CASES — passthrough ошибок downstream
+############################################################
+
+### 503: остановленный file-storage — фото-пост недоступен
+# (остановите file-storage и повторите)
+# POST {{host}}/posts/photo
+# Authorization: Bearer {{token}}
+# Content-Type: multipart/form-data; boundary=boundary
+# ...
+
+### Swagger UI: http://localhost:3005/spec
+############################################################

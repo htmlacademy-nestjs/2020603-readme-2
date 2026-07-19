@@ -20,6 +20,9 @@
     },
     {
       "path": "./apps/file-storage"
+    },
+    {
+      "path": "./apps/api-gateway"
     }
   ]
 }
