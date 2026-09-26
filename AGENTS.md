@@ -31,30 +31,31 @@ HTML Academy "Readme" course project: NestJS 11 + Nx 22 monorepo, ESM, `"type": 
 ## Verification Status
 - `npx nx build <app>` works and is the main compile check.
 - `npx nx test <app>` works with Jest 30 via SWC.
-- `npx nx lint users` is clean.
-- `npx nx lint blog` passes with one known warning in `apps/blog/src/app/post/post.controller.ts` for `update(@Body() dto: any)`.
+- `npx nx run-many -t lint` is clean for all 5 apps. The old `update(@Body() dto: any)` warning in blog is gone: the endpoint now takes a validated `UpdatePostDto`.
 - `npx nx lint notify` and `npx nx build notify` are clean. Note: `notify`'s `webpack.config.js` sets `useTsconfigPaths: true` so the build resolves `@project/*` aliases.
 - `npx nx lint file-storage`, `npx nx build file-storage`, and `npx nx test file-storage` are clean. `file-storage`'s `webpack.config.js` also sets `useTsconfigPaths: true` for `@project/*` resolution.
 - `npx nx lint api-gateway`, `npx nx build api-gateway`, and `npx nx test api-gateway` are clean. `api-gateway`'s `webpack.config.js` also sets `useTsconfigPaths: true` for `@project/*` resolution. `api-gateway` has no Prisma targets (no DB).
 - `npx nx typecheck <app>` is still a known problem: inferred Nx target runs `tsc --build --emitDeclarationOnly`, while workspace aliases map `@project/*` to lib source without TS project references. Use `nx build` and `nx test` as verification until a project-references migration is done.
-- `users`, `blog`, `notify`, and `file-storage` use Prisma DB targets. `db-validate` and `db-generate` do not need a running DB. `db-migrate`, `db-reset`, and `db-fill` need Postgres up. `file-storage` has no `db-fill` (no seed). `api-gateway` has no Prisma targets.
+- `users`, `blog`, `notify`, and `file-storage` use Prisma DB targets. `db-validate` and `db-generate` do not need a running DB. `db-migrate`, `db-reset`, and `db-fill` need Postgres up. `db-migrate` does **not** imply `db-generate` — see the Prisma Stack section. `file-storage` has no `db-fill` (no seed). `api-gateway` has no Prisma targets.
 
 ## Apps
-- `users`: Prisma + PostgreSQL service. Implements registration, login, JWT access/refresh tokens, password change, Prisma-backed user repository, UUID primary keys, bcrypt password hashes.
-- `blog`: Prisma + PostgreSQL service. Implements posts, comments, likes, subscriptions, feed, filtering, search, pagination, and RDO serialization. It still uses `STUB_USER_ID` instead of real auth/API Gateway integration. Publishes an `add.post` event to notify's RabbitMQ queue on post create/repost via the `notify-client/` feature (`ClientProxy.emit`).
-- `file-storage`: Prisma + PostgreSQL (metadata) + filesystem (binaries) service. Implements upload/serve of files (avatars, photo-posts). Endpoints: `POST /api/files/avatar` (≤ 500 КБ), `POST /api/files/photo` (≤ 1 МБ) — both jpeg/png only, validated by magic bytes via `FileTypeValidator` (Nest 11 default, `file-type@21.3.4` on `file.buffer`; multer memory storage); `GET /api/files/:fileId` returns metadata RDO + a ready absolute `url`. Statics served through `app.useStaticAssets` (`NestExpressApplication`) under `/static` (outside the `api` prefix); no `@nestjs/serve-static` dependency. `FileModule` is imported into `AppModule`. Magic numbers: app `3004`, Postgres `5436`, pgAdmin `8085`. Sample fixtures + REST Client smoke in `apps/file-storage/file-storage.http`. No seed (no `db-fill` target).
-- `notify`: Prisma + PostgreSQL service for email newsletters (§7). Hybrid app: a RabbitMQ consumer (`@EventPattern` for `add.subscriber` and `add.post`) plus one synchronous HTTP trigger `POST /api/newsletters`. Sends mail via `@nestjs-modules/mailer` to a Mailpit fake SMTP. `blog` publishes `add.post`; `users` does not publish `add.subscriber` yet. The message contract (`RabbitRouting` enum, `PostNotification`) lives in `@project/shared-types`.
-- `api-gateway`: Stateless presentation layer (port 3005) — no Prisma, no compose, no DB. Locally verifies JWT access tokens with `@nestjs/jwt` (the `JWT_ACCESS_TOKEN_SECRET` is duplicated byte-for-byte from `apps/users/.env`; there is no `/check` endpoint in users). Proxies HTTP to the 4 downstream services via `@nestjs/axios` (`HttpModule.registerAsync` with timeout from `services` config). Aggregates data: authors in posts/comments (`getUserInfoMap` — dedupes `authorId`s, `Promise.all`, error/non-UUID e.g. `stub-user-id` → `null`), user cards in subscriptions (`followingId` → user), profile counts (`postsCount` from blog `totalItems` with `limit=1`, `subscribersCount` from the new blog endpoint `GET /api/subscriptions/followers/:userId/count`). Multipart pass-through: `POST /api/auth/register` (avatar → file-storage `/files/avatar` → users `/auth/register` with `avatarUrl`), `POST /api/posts/photo` (photo → file-storage `/files/photo` → blog `/posts/photo` with `photoUrl`). No separate `/api/files/*` in the gateway. A global `@Catch(AxiosError)` filter passes through downstream status+body as-is; network errors (no `response`) → 503. Protected routes use `JwtAuthGuard` + `@ApiBearerAuth()`. Blog still uses `STUB_USER_ID` — posts created through the gateway are attributed to the stub user; passing the real `userId` from the token into blog is the next integration task. Refresh endpoint and personal messages (messages.html) are out of scope. Swagger at `/spec` with `.addBearerAuth()`. `webpack.config.js` sets `useTsconfigPaths: true` for `@project/*` resolution. Smoke in `apps/api-gateway/api-gateway.http`.
+- `users`: Prisma + PostgreSQL service. Implements registration, login, JWT access/refresh tokens, password change, a `UserService` over a Prisma-backed repository, UUID primary keys, bcrypt password hashes. Publishes `user.registered` to notify's RabbitMQ queue on registration via its own `notify-client/` feature, so every registered user receives the newsletter (§7.2). Requires `RABBITMQ_*` in `apps/users/.env`.
+- `blog`: Prisma + PostgreSQL service. Implements posts, comments, likes, subscriptions, feed, filtering, search, pagination, and RDO serialization. It does not verify JWT: the current user arrives in the `X-User-Id` header set by the API Gateway (`common/user-id.guard.ts`, `@RequireUserId()`, `@CurrentUserId()`). Enforces ownership and status rules: 403 on editing/deleting someone else's post or deleting someone else's comment, another author's draft is 404, likes/comments/reposts only target published posts, and reposting your own post is 409. Publishes `post.published` (create, repost, return from draft, edit of a published post) and `post.unpublished` (published post becomes a draft or is deleted) to notify's RabbitMQ queue via the `notify-client/` feature (`ClientProxy.emit`). Posts and comments are soft-deleted through an `isDeleted` flag plus a `deletedAt` timestamp.
+- `file-storage`: Prisma + PostgreSQL (metadata) + filesystem (binaries) service. Implements upload/serve of files (avatars, photo-posts). Endpoints: `POST /api/files/avatar` (≤ 500 КБ), `POST /api/files/photo` (≤ 1 МБ) — both jpeg/png only, validated by magic bytes via `FileTypeValidator` (Nest 11 default, `file-type@21.3.4` on `file.buffer`; multer memory storage); `GET /api/files/:fileId` returns metadata RDO + a ready absolute `url`. Statics served through `app.useStaticAssets` (`NestExpressApplication`) under `/static` (outside the `api` prefix); no `@nestjs/serve-static` dependency. `FileModule` is imported into `AppModule`. Magic numbers: app `3004`, Postgres `5436`, pgAdmin `8085`. Sample fixtures + IntelliJ HTTP Client smoke in `apps/file-storage/file-storage.http`. No seed (no `db-fill` target).
+- `notify`: Prisma + PostgreSQL service for email newsletters (§7). Hybrid app: a RabbitMQ consumer (`@EventPattern` for `user.registered`, `post.published` and `post.unpublished`) plus one synchronous HTTP trigger `POST /api/newsletters`. Sends mail via `@nestjs-modules/mailer` to a Mailpit fake SMTP. `users` publishes `user.registered`, `blog` publishes the two post events. The message contract (`RabbitRouting` enum, `UserRegisteredEvent`, `PostPublishedEvent`, `PostUnpublishedEvent`) lives in `@project/shared-types`.
+- `api-gateway`: Stateless presentation layer (port 3005) — no Prisma, no compose, no DB. Locally verifies JWT access tokens with `@nestjs/jwt` (the `JWT_ACCESS_TOKEN_SECRET` is duplicated byte-for-byte from `apps/users/.env`; there is no `/check` endpoint in users). Proxies HTTP to the 4 downstream services via `@nestjs/axios` (`HttpModule.registerAsync` with timeout from `services` config). Aggregates data: authors in posts/comments (`getUserInfoMap` — dedupes `authorId`s, `Promise.all`, errors and non-UUID ids → `null`), user cards in subscriptions (`followingId` → user), profile counts (`postsCount` from blog `totalItems` with `limit=1`, `subscribersCount` from the new blog endpoint `GET /api/subscriptions/followers/:userId/count`). Multipart pass-through: `POST /api/auth/register` (avatar → file-storage `/files/avatar` → users `/auth/register` with `avatarUrl`), `POST /api/posts/photo` (photo → file-storage `/files/photo` → blog `/posts/photo` with `photoUrl`). No separate `/api/files/*` in the gateway. A global `@Catch(AxiosError)` filter passes through downstream status+body as-is; network errors (no `response`) → 503. Protected routes use `JwtAuthGuard` + `@ApiBearerAuth()`. The token's `sub` reaches blog as the `X-User-Id` header (`BlogClient.withUser`), so posts, comments, likes and subscriptions belong to the token owner. `AnonymousGuard` rejects registration from an authenticated client (§1.1), `OptionalJwtAuthGuard` lets an author open their own draft by id, and `POST /api/auth/refresh` proxies to users. Personal messages (messages.html) are out of scope. Swagger at `/spec` with `.addBearerAuth()`. `webpack.config.js` sets `useTsconfigPaths: true` for `@project/*` resolution. Smoke in `apps/api-gateway/api-gateway.http`.
 - No `*-e2e` apps exist, though `nx.json` still lists them in Jest excludes.
 
 ## Shared Libs
-- `@project/shared-types`: domain classes/enums/interfaces (`User`, post union types, `Comment`, `Like`, `PostType`, `TokenPayload`, `PaginationResult`, etc.), plus the RabbitMQ contract shared by producers and consumer (`RabbitRouting` enum, `PostNotification`).
+- `@project/shared-types`: domain classes/enums/interfaces (`User`, post union types, `Comment`, `Like`, `PostType`, `TokenPayload`, `PaginationResult`, etc.), the RabbitMQ contract shared by producers and consumer (`RabbitRouting` enum, `UserRegisteredEvent`, `PostPublishedEvent`, `PostUnpublishedEvent`), and the cross-service `USER_ID_HEADER` constant (`x-user-id`) used by the gateway and blog.
 - `@project/shared-errors`: domain error base classes and `DomainExceptionFilter`.
 - `@project/shared-config`: shared env/config infrastructure — `validateEnvironment(schema, config)`, the `Environment` enum, and the `registerAs` factories `appConfig`, `postgresConfig`, `rabbitmqConfig` (with their `AppConfig`/`PostgresConfig`/`RabbitmqConfig` interfaces).
 - `@project/shared-helpers`: RDO serialization helpers `fillRdo`, `fillRdoList`, `fillRdoPagination`, plus connection-string builders `getPostgresConnectionString` and `getRabbitmqConnectionString` (build a URL from a config object).
 - Each app keeps only its own env contract in `apps/<app>/src/app/config/`: `EnvironmentVariables` + `validateEnv` in `env.validation.ts`, the `index.ts` barrel, and any service-specific `registerAs` config (`jwt.config.ts` in `users`, `mail.config.ts` in `notify`, `storage.config.ts` in `file-storage`, `services.config.ts` + `jwt.config.ts` in `api-gateway`). There is no per-app `helpers/` directory — the shared factories, `Environment` enum, and connection-string builders are imported from the libs above.
 
 ## Conventions
+- **Module boundaries: a module exports only its service.** Repositories and Prisma tables are private to the module that owns them; other modules go through the service (`AuthenticationService → UserService`, `CommentService`/`LikeService → PostService`, `PostService.findFeed → SubscriptionService.findFollowingIds`). No `*.module.ts` exports a repository. Business rules therefore live in exactly one place per entity.
+- **RabbitMQ events are named after what happened at the producer** (`user.registered`, `post.published`, `post.unpublished`), not after what a consumer will do with them: the contract stays valid when another service subscribes to the same event.
 - ESM project. Use `.js` suffix in runtime ESM imports where required by generated/runtime scripts.
 - Prettier: single quotes, 2-space indent, LF, final newline.
 - Import shared libs via aliases like `@project/shared-types`, not relative paths.
@@ -75,6 +76,7 @@ HTML Academy "Readme" course project: NestJS 11 + Nx 22 monorepo, ESM, `"type": 
 - Generator is `prisma-client`, not `prisma-client-js`.
 - Generator output is required and points to `apps/<app>/src/generated/prisma`.
 - Generated Prisma clients are git-ignored and eslint-ignored.
+- **`db-migrate` does not generate the client.** Under Prisma 7 with `prisma.config.ts`, `prisma migrate dev` applies the migrations but leaves `apps/<app>/src/generated/prisma` untouched — verified by deploying a clean clone of the repository. On a fresh checkout run `npx nx db-generate <app>` for all four Prisma apps **before** building or serving, otherwise the build fails with `Module not found: Error: Can't resolve '../../generated/prisma/client'`. The root `specification.md` documents this as its own step ahead of the migrations.
 - Prisma `datasource db` has no `url`; Prisma 7 forbids it in schema.
 - CLI connection config lives in `apps/<app>/prisma.config.ts`.
 - `prisma.config.ts` explicitly loads `apps/<app>/.env` with `dotenv`.
@@ -91,7 +93,8 @@ HTML Academy "Readme" course project: NestJS 11 + Nx 22 monorepo, ESM, `"type": 
 - Email is unique.
 - Password is stored only as `password_hash`.
 - `UserIdParamDto` validates ids with `@IsUUID('4')`.
-- `POST /auth/login` returns `accessToken` and `refreshToken`.
+- `POST /auth/login` returns `accessToken` and `refreshToken`; `POST /auth/refresh` exchanges a valid refresh token for a fresh pair (`AuthenticationService.verifyRefreshToken` → `InvalidRefreshTokenError` on a bad/expired token).
+- `UserModule` exports only `UserService`, the module's public API: `getById` (throws `UserNotFoundError`), `findByEmail`, `create` (enforces the unique email with `UserAlreadyExistsError`) and `updatePasswordHash`. Both errors live in `user/user.errors.ts`. `AuthenticationService` works exclusively through `UserService`; the `GET /auth/:id` route also reads the user through it. All HTTP routes still live in `AuthenticationModule`.
 - Seed file: `apps/users/prisma/seed.ts`.
 - `npx nx db-fill users` creates 3 demo users.
 - Demo users use password `secret123`.
@@ -101,23 +104,31 @@ HTML Academy "Readme" course project: NestJS 11 + Nx 22 monorepo, ESM, `"type": 
 - Prisma schema: `apps/blog/prisma/schema.prisma`.
 - Runtime Prisma wrapper: `apps/blog/src/app/prisma/`.
 - Posts use single-table inheritance: one `posts` table with `type` enum and nullable type-specific columns.
-- `likesCount` and `commentsCount` come from Prisma `_count`; do not maintain counters manually.
+- `likesCount` and `commentsCount` come from Prisma `_count`; do not maintain counters manually. `commentsCount` is a filtered relation count (`comments: { where: { isDeleted: false } }`), so soft-deleted comments are not counted.
+- **Soft delete.** `Post` and `Comment` carry two fields: `isDeleted Boolean @default(false)` (column `is_deleted`) and `deletedAt DateTime?` (migrations `soft_delete` and `soft_delete_flag`; the latter backfills `is_deleted` from `deleted_at`). The flag alone decides whether a row is deleted: both repositories define `NOT_DELETED = { isDeleted: false }` and apply it to every read, including `findById` (now `findFirst`), search, the repost-once check and comment lists. `softDeleteById` sets both the flag and the date. A restore would reset only the flag and keep `deletedAt` as the time of the last deletion. **Keep both fields**: the mentor explicitly asked not to collapse the flag into `deletedAt IS NULL`, because restoring would then have to erase the deletion date. Comments of a deleted post are not marked separately: they become unreachable together with the post (§2.3) because every comment operation first checks the post through `PostService.findPublishedPost`, and they would come back if the post were restored. Likes and subscriptions remain hard-deleted by design — they are toggles with nothing referencing them. Reposts of a deleted original stay visible and keep `originalPostId` (previously the FK `SetNull` wiped it).
+- **Sort by comments is two-phase.** Prisma 7 cannot `orderBy` a filtered relation count (`CommentOrderByRelationAggregateInput` has only `_count`), so `sortBy=comments` is served by `PostRepository.findPageByCommentsCount`: posts with at least one live comment come from `prisma.comment.groupBy` ordered by count (tie-break `postId`), then the tail of posts without live comments ordered by `publishedAt`; the page boundary is computed from the number of commented posts, and the records are loaded in one `findMany` with the order restored. All filters are reused from `buildWhere`, no raw SQL. Do not revert to `orderBy: { comments: { _count } }` — it counts deleted comments.
 - Tags are many-to-many and normalized to lowercase in service logic.
-- Feed uses `subscriptions` plus current user's own posts.
+- Feed = the current user's own posts plus the authors they follow. `PostService.findFeed` asks `SubscriptionService.findFollowingIds` for the authors and calls `PostRepository.findPublishedByAuthors`; the post repository never reads the `subscription` table.
 - `authorId`, `userId`, `followerId`, `followingId`, and `originalAuthorId` are opaque user ids from Users.
 - New endpoint `GET /api/subscriptions/followers/:userId/count` → `{ count }` (added for API Gateway profile aggregation; `SubscriptionRepository.countByFollowing` + `SubscriptionService.countFollowers`).
-- `apps/blog/blog.http` has REST Client smoke examples.
+- Auth: `@RequireUserId()` (from `common/require-user-id.decorator.ts`) bundles `UseGuards(UserIdGuard)` + `ApiHeader` + `ApiUnauthorizedResponse`; handlers read the id with `@CurrentUserId()`. Public routes (post list, single post, search, comment list, followers count) have no guard; `GET /posts/:id` still reads `@CurrentUserId()` so an author can fetch their own draft.
+- `PostService.findPost(id, requesterId?)` returns 404 for another author's draft; `PostService.findPublishedPost(id)` is the shared gate used by likes, comments and reposts. `CommentService` and `LikeService` inject `PostService` (their modules import `PostModule`).
+- Tag rules (§ "Теги к публикациям") live in `post.constant.ts`: `MAX_TAGS_COUNT`, `TAG_PATTERN` (`/^\p{L}[^\s]{2,9}$/u`), `TAG_VALIDATION_MESSAGE`, applied with `@Matches(..., { each: true })` in all create DTOs and `UpdatePostDto`. Lowercasing and dedup stay in `PostService.normalizeTags`.
+- `UpdatePostDto` validates every optional field and adds `publishedAt` (§2.11, `@Type(() => Date) @IsDate()`) and `status` (§2.12). `PostService.updatePost` merges only defined entries, because compiled DTOs carry `undefined` own properties.
+- `PostRepository.findByTitle` ORs `contains` over individual words, so a multi-word query matches on any word (§8.2).
+- `apps/blog/blog.http` has IntelliJ HTTP Client smoke examples, including negative cases (401 without the header, 403 on someone else's post, 409 self-repost, 400 bad tags).
 
 ## Notify Service
 - Prisma schema: `apps/notify/prisma/schema.prisma` (tables `email_subscribers`, `notify_posts`).
 - Runtime Prisma wrapper: `apps/notify/src/app/prisma/`.
 - Hybrid app (`main.ts`): HTTP server plus a RabbitMQ microservice (`Transport.RMQ`, `noAck: true`) bound to the queue `RABBITMQ_QUEUE` (default `readme.notify.income`).
-- Consumers (`@EventPattern`): `add.subscriber` upserts `email_subscribers`; `add.post` upserts `notify_posts`. Routing keys are the shared `RabbitRouting` enum in `@project/shared-types`. `blog` is the `add.post` producer (see its `notify-client/` feature); `users` does not yet publish `add.subscriber`.
+- Consumers (`@EventPattern`): `user.registered` upserts `email_subscribers` (`EmailSubscriberController.handleUserRegistered`); `post.published` upserts `notify_posts` without resetting `notifiedAt`, so re-sending an already mailed post never mails it twice; `post.unpublished` deletes only the *pending* row (`notifiedAt IS NULL`) through `NotifyPostRepository.deletePending`. Routing keys are the shared `RabbitRouting` enum in `@project/shared-types`. Producers: `users` (`user.registered`) and `blog` (`post.published`, `post.unpublished`).
+- Inside notify the recipient table is still `email_subscribers`: there «subscriber» means a newsletter subscriber, which is accurate. Only the event name crossed service boundaries and was renamed, to avoid confusion with blog's user-to-user subscriptions.
 - The only synchronous endpoint is `POST /api/newsletters`: emails every subscriber a digest of posts where `notifiedAt IS NULL`, then marks them notified ("publications since the last newsletter", §7.3/§7.5).
 - Mail: `@nestjs-modules/mailer` (+ `nodemailer`) sends to Mailpit; the HTML digest is built in `mail.service.ts`.
 - Internal event payloads are trusted (the global `ValidationPipe`/`DomainExceptionFilter` are not inherited by the consumer); `publishedAt` is coerced to `Date` in the repository.
 - Seed: `apps/notify/prisma/seed.ts`; `npx nx db-fill notify` creates 3 demo subscribers (matching the Users demo emails).
-- Manual test publisher (no `users`/`blog` needed): `tsx apps/notify/tools/rabbit-publish.ts`. REST Client smoke in `apps/notify/notify.http`.
+- Manual test publisher (no `users`/`blog` needed): `tsx apps/notify/tools/rabbit-publish.ts`. IntelliJ HTTP Client smoke in `apps/notify/notify.http`.
 - In WebStorm Database panel connect to `localhost:5435`, database `readme-notify`, schema `public`.
 
 ## File-Storage Service
@@ -130,7 +141,7 @@ HTML Academy "Readme" course project: NestJS 11 + Nx 22 monorepo, ESM, `"type": 
 - `FileService` detects mimetype from the buffer's magic bytes (not from `file.mimetype`), builds a posix `subDirectory` `<kind>/<YYYY>/<MM>` (only `/`, used for both DB and URL), writes the file via `node:fs/promises`, and on a DB failure best-effort `unlink`s the orphan and rethrows. The `url` is built by the service (`${baseUrl}${serveRoot}/${path}`), not the controller.
 - `StorageConfig` (`registerAs` `storage`) holds `uploadDirectory`, `serveRoot`, `baseUrl`; `env.validation.ts` uses `@IsUrl({ require_tld: false })` for `STATIC_BASE_URL` so `http://localhost:3004` validates.
 - Magic numbers: app `3004`, Postgres `5436`, pgAdmin `8085`.
-- No seed (no `db-fill` target). Sample fixtures in `apps/file-storage/sample/`; REST Client smoke in `apps/file-storage/file-storage.http`.
+- No seed (no `db-fill` target). Sample fixtures in `apps/file-storage/sample/`; IntelliJ HTTP Client smoke in `apps/file-storage/file-storage.http`.
 - In WebStorm Database panel connect to `localhost:5436`, database `readme-file-storage`, schema `public`, table `files`.
 
 ## API Gateway Service
@@ -140,19 +151,46 @@ HTML Academy "Readme" course project: NestJS 11 + Nx 22 monorepo, ESM, `"type": 
 - `JwtAuthGuard` extracts Bearer token → `jwtService.verifyAsync<TokenPayload>(token, { secret })` → `request.user`. Errors throw domain `TokenNotProvidedError`/`InvalidTokenError` (→ 401 via `DomainExceptionFilter`).
 - `@CurrentUser('sub')` decorator returns the user id from the JWT payload.
 - `@Catch(AxiosError)` filter (`AxiosExceptionFilter`) passes through downstream `response.status` + `response.data` as-is; no response (network error) → 503. Registered in `main.ts` alongside `DomainExceptionFilter`.
-- Author enrichment: `UsersClient.getUserInfoMap(ids)` dedupes `authorId`s, calls `GET users /auth/:id` in parallel; non-UUID ids (e.g. `stub-user-id`) and errors → `null`. Nested RDOs (`PostWithAuthorRdo.author`, `CommentWithAuthorRdo.author`, `SubscriptionWithUserRdo.user`) use `@Type(() => UserInfoRdo)` + `@Expose` so `fillRdo` with `excludeExtraneousValues` doesn't return empty.
+- Author enrichment: `UsersClient.getUserInfoMap(ids)` dedupes `authorId`s, calls `GET users /auth/:id` in parallel; errors → `null`, and non-UUID ids → `null` without a request (users' `UserIdParamDto` would reject them with 400). Nested RDOs (`PostWithAuthorRdo.author`, `CommentWithAuthorRdo.author`, `SubscriptionWithUserRdo.user`) use `@Type(() => UserInfoRdo)` + `@Expose` so `fillRdo` with `excludeExtraneousValues` doesn't return empty.
 - Multipart pass-through: `POST /api/auth/register` (`FileInterceptor('avatar')`, `ParseFilePipe` with `fileIsRequired: false`) uploads to file-storage `/files/avatar`, then calls users `/auth/register` with `avatarUrl`. `POST /api/posts/photo` (`FileInterceptor('photo')`) uploads to file-storage `/files/photo`, then calls blog `/posts/photo` with `photoUrl`. Upload limits and `IMAGE_MIME_TYPE_PATTERN` are duplicated locally in `common/upload.constant.ts` (cross-app imports forbidden).
 - Gateway create-DTOs are copies of blog DTOs without the `type` field (the service adds `type: PostType.X` before calling blog). `UpdatePostDto` is all-optional with `require_tld: false` on `photoUrl`/`link`.
 - `GET /api/users/:id` aggregates: `Promise.all([users getUser, blog getPosts(authorId, limit=1), blog getFollowersCount])` → `postsCount = totalItems`, `subscribersCount = count`.
 - `JwtModule.register({ global: true })` (bare pattern — secret passed in `verifyAsync`, not in module config, same as `users`).
 - Swagger `DocumentBuilder` «Readme — API Gateway» + `.addBearerAuth()` on `/spec`. `@ApiBearerAuth()` on all protected routes.
-- No separate `/api/files/*` in the gateway. No refresh endpoint (users doesn't have one). Personal messages (messages.html), viewsCount, likedByMe — out of scope.
-- REST Client smoke in `apps/api-gateway/api-gateway.http`.
+- `BlogClient.withUser(userId)` attaches the `X-User-Id` header to every user-scoped blog call (create/update/delete/repost, comments, likes, subscriptions, feed, drafts); controllers take `@CurrentUser('sub')` and thread it through the services. Public calls (post list, search, followers count) send no header.
+- `AnonymousGuard` (`common/anonymous.guard.ts`) protects `POST /api/auth/register`: a valid Bearer token → `AlreadyAuthenticatedError` (403, §1.1). A missing or invalid token is treated as anonymous.
+- Tag constants are duplicated in `posts/posts.constant.ts` (cross-app imports are forbidden, same reasoning as `common/upload.constant.ts`). The gateway `UpdatePostDto` also carries `publishedAt` (`@IsDateString()`) and `status`.
+- `POST /api/auth/refresh` proxies to users' refresh endpoint (`UsersClient.refresh`).
+- `OptionalJwtAuthGuard` (`common/optional-jwt-auth.guard.ts`) is used on `GET /api/posts/:id`: the route stays public, but a valid token fills `request.user`, so an author can open their own draft by direct id.
+- No separate `/api/files/*` in the gateway. Personal messages (messages.html), viewsCount, likedByMe — out of scope.
+- IntelliJ HTTP Client smoke in `apps/api-gateway/api-gateway.http`.
+
+## HTTP Smoke Files (`*.http`)
+- These are **IntelliJ HTTP Client** files (WebStorm/IDEA), not VS Code REST Client. The two dialects differ and are not interchangeable.
+- Chaining a value out of a response uses a response handler, never `{{requestName.response.body.field}}` (that is REST Client syntax; the IntelliJ client parses `requestName` as a plain variable and the inspection reports `Cannot resolve variable`):
+  ```
+  # @name createPost
+  POST {{host}}/posts/text
+  ...
+
+  > {%
+      client.global.set('postId', response.body.id);
+  %}
+  ```
+  Later requests then use `{{postId}}`. The `HttpClientUnresolvedVariable` inspection recognizes names declared via `client.global.set`, so they are not flagged.
+- Each app with a `.http` file ships `http-client.env.json` defining a `development` environment. WebStorm stores the selected environment per file in `.idea/workspace.xml` (`HttpClientSelectedEnvironments`), which is **not** committed — if the selected environment does not exist, every variable in the file is reported as `Cannot resolve variable 'x' in the selected environment 'development'`, including in-place ones.
+- In-place `@name = value` declarations **take precedence over environment values** (verified with `jetbrains/intellij-http-client`). Static values are therefore duplicated: in-place so the file works with no environment selected, and in the env file so an existing selection resolves. Keep the two in sync.
+- **Smoke files must be re-runnable against the same database.** Never hard-code a registration email: on the second run registration returns 409, the handler stores `undefined` in `userId`, and every URL with `{{userId}}` fails as an illegal URI. `api-gateway.http` therefore registers `alice-{{$random.alphanumeric(8)}}@example.com` / `bob-…` (the `403` anonymous-only check uses `carol-…` the same way) and saves the address from the response with `client.global.set('email', response.body.email)` (`secondEmail` for the second user); both logins and the `409` duplicate-registration check use `{{email}}` / `{{secondEmail}}`. Verified by two consecutive CLI runs with identical per-request statuses.
+- Verify a `.http` file without the IDE:
+  ```
+  docker run --rm -v "$PWD:/workdir" jetbrains/intellij-http-client -D --no-progress \
+    -e development -v /workdir/apps/blog/http-client.env.json /workdir/apps/blog/blog.http
+  ```
+  `-D` maps `localhost` to `host.docker.internal`. Requires the services to be running.
 
 ## Known Gaps
-- Blog still uses `STUB_USER_ID`; posts created through the API Gateway are attributed to the stub user. Passing the real `userId` from the JWT token into blog is the next integration task.
-- Some stub files still exist, for example `apps/users/src/app/user/dto/update-user.dto.ts` and `apps/blog/src/app/post/dto/update-post.dto.ts`.
-- Blog update endpoint still has one lint warning because `@Body() dto: any` is used. The gateway's `UpdatePostDto` is properly typed.
+- Personal messages (messages.html), viewsCount and likedByMe from the markup are out of scope — the specification does not require them.
+- No refresh-token rotation or revocation list: `POST /auth/refresh` only validates the signature and issues a new pair.
 
 ## Gotchas
 - Numeric env vars need explicit `: number` types in `EnvironmentVariables`, otherwise SWC decorator metadata may not convert strings correctly.
@@ -162,7 +200,8 @@ HTML Academy "Readme" course project: NestJS 11 + Nx 22 monorepo, ESM, `"type": 
 - `@IsUrl()` defaults reject `http://localhost:...` URLs — needs `require_tld: false`. Fixed in: `file-storage` (`STATIC_BASE_URL`), `users` (`avatarUrl` in `CreateUserDto`), `blog` (`photoUrl` in `CreatePhotoPostDto`), and `api-gateway` (all `*_SERVICE_URL` env vars; `UpdatePostDto` `photoUrl`/`link` fields).
 - `FileTypeValidator` (Nest 11) validates by magic bytes via `file-type@21.3.4` on `file.buffer`; needs multer memory storage (the default — do not switch to disk storage). The regex matches the *detected* mime (`image/jpeg`, not `image/jpg`).
 - `apps/<app>/tsconfig.app.json` intentionally includes `prisma.config.ts` and `prisma/**/*.ts` so `import.meta` in Prisma scripts compiles.
-- `.env` files are local and ignored by git. Recreate them manually when needed.
+- `.env` files are local and ignored by git. Copy the per-app `.env.example` (`cp apps/<app>/.env.example apps/<app>/.env`). Root-level launch instructions live in `specification.md`.
+- Builds compile with tsc at `target: es2023`, so `useDefineForClassFields` makes declared-but-unset DTO fields exist as own `undefined` properties. Filter them before `Object.assign`-ing a DTO onto a domain object (see `PostService.updatePost`).
 - Old local Mongo data may still exist under ignored `apps/users/mongodb/`; it is no longer used.
 
 ## Local Infra
@@ -205,6 +244,13 @@ JWT_ACCESS_TOKEN_SECRET=users-dev-access-token-secret-change-me
 JWT_ACCESS_TOKEN_EXPIRES_IN=15m
 JWT_REFRESH_TOKEN_SECRET=users-dev-refresh-token-secret-change-me
 JWT_REFRESH_TOKEN_EXPIRES_IN=7d
+
+# RabbitMQ producer for user.registered — connects to notify's broker
+RABBITMQ_HOST=localhost
+RABBITMQ_PORT=5672
+RABBITMQ_USER=admin
+RABBITMQ_PASSWORD=test
+RABBITMQ_QUEUE=readme.notify.income
 ```
 
 Blog `.env`:

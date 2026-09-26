@@ -24,14 +24,19 @@ import { AuthenticationService } from './authentication.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { ChangeUserPasswordDto } from './dto/change-user-password.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { LoggedUserRdo } from './rdo/logged-user.rdo';
+import { UserService } from '../user/user.service';
 import { UserIdParamDto } from '../user/dto/user-id-param.dto';
 import { UserRdo } from '../user/rdo/user.rdo';
 
 @ApiTags('authentication')
 @Controller('auth')
 export class AuthenticationController {
-  constructor(private readonly authenticationService: AuthenticationService) {}
+  constructor(
+    private readonly authenticationService: AuthenticationService,
+    private readonly userService: UserService,
+  ) {}
 
   @Post('register')
   @ApiOperation({ summary: 'Регистрация нового пользователя' })
@@ -66,6 +71,26 @@ export class AuthenticationController {
     };
   }
 
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Обменять refresh-токен на новую пару токенов' })
+  @ApiOkResponse({ description: 'Новая пара токенов', type: LoggedUserRdo })
+  @ApiBadRequestResponse({ description: 'Невалидный формат токена' })
+  @ApiUnauthorizedResponse({ description: 'Refresh-токен недействителен или истёк' })
+  @ApiNotFoundResponse({ description: 'Пользователь не найден' })
+  public async refresh(@Body() dto: RefreshTokenDto): Promise<LoggedUserRdo> {
+    const user = await this.authenticationService.verifyRefreshToken(
+      dto.refreshToken,
+    );
+    const tokens = await this.authenticationService.createTokens(user);
+
+    return {
+      id: user.id,
+      email: user.email,
+      ...tokens,
+    };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Получить информацию о пользователе' })
   @ApiParam({
@@ -80,7 +105,7 @@ export class AuthenticationController {
   })
   @ApiNotFoundResponse({ description: 'Пользователь не найден' })
   public async show(@Param() params: UserIdParamDto): Promise<UserRdo> {
-    const user = await this.authenticationService.getUser(params.id);
+    const user = await this.userService.getById(params.id);
     return plainToInstance(UserRdo, user, { excludeExtraneousValues: true });
   }
 
