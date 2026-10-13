@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Comment } from '@project/shared-types';
-import type { PaginationResult } from '@project/shared-types';
+import { Comment, CommentListLimit, Pagination } from '@project/shared-types';
+import type { PaginationQuery, PaginationResult } from '@project/shared-types';
+import { createPaginationResult } from '@project/shared-helpers';
 import { PrismaService } from '../prisma/prisma.service';
-import { DEFAULT_LIMIT } from './comment.constant';
-import type { CommentQuery } from './comment-query.type';
+import { NOT_DELETED } from '../prisma/soft-delete.constant';
 
 type CommentRecord = {
   id: string;
@@ -12,11 +12,6 @@ type CommentRecord = {
   text: string;
   createdAt: Date;
 };
-
-// Мягкое удаление: удалённые комментарии остаются в таблице с флагом isDeleted
-// (на них в будущем могут ссылаться ответы), поэтому каждое чтение исключает
-// их явно.
-const NOT_DELETED = { isDeleted: false };
 
 @Injectable()
 export class CommentRepository {
@@ -34,28 +29,29 @@ export class CommentRepository {
 
   public async findByPostId(
     postId: string,
-    query: CommentQuery = {},
+    query: PaginationQuery = {},
   ): Promise<PaginationResult<Comment>> {
-    const { limit = DEFAULT_LIMIT, page = 1 } = query;
+    const { limit = CommentListLimit.Default, page = Pagination.FirstPage } =
+      query;
 
     const where = { postId, ...NOT_DELETED };
     const [totalItems, records] = await this.prisma.$transaction([
       this.prisma.comment.count({ where }),
       this.prisma.comment.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
+        // id — второй ключ: у комментариев одной вставки совпадает createdAt.
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: (page - Pagination.FirstPage) * limit,
         take: limit,
       }),
     ]);
 
-    return {
+    return createPaginationResult({
       entities: records.map((record) => this.toDomain(record)),
-      totalPages: Math.ceil(totalItems / limit),
       totalItems,
       currentPage: page,
       itemsPerPage: limit,
-    };
+    });
   }
 
   public async findById(id: string): Promise<Comment | null> {

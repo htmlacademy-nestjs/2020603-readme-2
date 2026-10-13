@@ -7,7 +7,7 @@ import {
   IsUUID,
   MaxLength,
 } from 'class-validator';
-import { PostType } from '@project/shared-types';
+import { PostType, PostValidation } from '@project/shared-types';
 import type { PostPublishedEvent } from '@project/shared-types';
 
 /**
@@ -21,7 +21,7 @@ export class PostPublishedDto implements PostPublishedEvent {
 
   @IsOptional()
   @IsString()
-  @MaxLength(50)
+  @MaxLength(PostValidation.Title.MaxLength)
   public title?: string;
 
   @IsEnum(PostType)

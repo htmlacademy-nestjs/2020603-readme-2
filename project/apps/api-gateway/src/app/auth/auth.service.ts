@@ -2,10 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { fillRdo } from '@project/shared-helpers';
 import { UsersClient } from '../clients/users.client';
 import { FileStorageClient } from '../clients/file-storage.client';
-import { RegisterUserDto } from './dto/register-user.dto';
-import { LoginUserDto } from './dto/login-user.dto';
-import { ChangeUserPasswordDto } from './dto/change-user-password.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
+import {
+  ChangeUserPasswordDto,
+  LoginUserDto,
+  RefreshTokenDto,
+  RegisterUserDto,
+} from '@project/shared-dto';
 import { UserRdo } from './rdo/user.rdo';
 import { LoggedUserRdo } from './rdo/logged-user.rdo';
 
@@ -20,12 +22,10 @@ export class AuthService {
     dto: RegisterUserDto,
     file?: Express.Multer.File,
   ): Promise<UserRdo> {
-    let avatarUrl: string | undefined;
-
-    if (file) {
-      const stored = await this.fileStorageClient.uploadAvatar(file);
-      avatarUrl = stored.url;
-    }
+    // §1.2: аватар необязателен; загруженный файл превращается в его URL.
+    const avatarUrl = file
+      ? (await this.fileStorageClient.uploadAvatar(file)).url
+      : undefined;
 
     const user = await this.usersClient.register({
       email: dto.email,

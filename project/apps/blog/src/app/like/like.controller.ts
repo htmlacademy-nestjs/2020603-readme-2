@@ -4,6 +4,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Post,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -22,13 +23,23 @@ export class LikeController {
   @RequireUserId()
   @ApiOperation({ summary: 'Поставить лайк публикации' })
   @ApiResponse({ status: HttpStatus.CREATED })
-  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Лайк уже поставлен' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Публикация не найдена' })
-  public async addLike(
-    @Param('postId') postId: string,
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Невалидный идентификатор публикации',
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Лайк уже поставлен',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Публикация не найдена',
+  })
+  public async add(
+    @Param('postId', ParseUUIDPipe) postId: string,
     @CurrentUserId() userId: string,
   ) {
-    const like = await this.likeService.addLike(postId, userId);
+    const like = await this.likeService.add(postId, userId);
     return fillRdo(LikeRdo, like);
   }
 
@@ -37,11 +48,18 @@ export class LikeController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Убрать лайк с публикации' })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Публикация не найдена' })
-  public async removeLike(
-    @Param('postId') postId: string,
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Невалидный идентификатор публикации',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Публикация не найдена или лайк не был поставлен',
+  })
+  public async remove(
+    @Param('postId', ParseUUIDPipe) postId: string,
     @CurrentUserId() userId: string,
   ) {
-    await this.likeService.removeLike(postId, userId);
+    await this.likeService.remove(postId, userId);
   }
 }

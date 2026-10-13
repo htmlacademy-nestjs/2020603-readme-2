@@ -1,12 +1,9 @@
-import {
-  BadRequestException,
-  ValidationPipe,
-  type ArgumentMetadata,
-} from '@nestjs/common';
-import { PostStatus } from '@project/shared-types';
+import { BadRequestException, type ArgumentMetadata } from '@nestjs/common';
+import { PostStatus, PostTag, YoutubeUrl } from '@project/shared-types';
+import { createValidationPipe } from '@project/shared-config';
 import { CreateTextPostDto } from './create-text-post.dto';
-import { UpdatePostDto } from './update-post.dto';
-import { TAG_VALIDATION_MESSAGE } from '../post.constant';
+import { CreateVideoPostDto } from './create-video-post.dto';
+import { UpdatePostDto } from '@project/shared-dto';
 
 type ValidationResponse = {
   message: string[];
@@ -15,24 +12,13 @@ type ValidationResponse = {
 const VALID_TEXT_POST = {
   type: 'text',
   title: 'Мой первый пост о TypeScript разработке',
-  announce: 'Краткий анонс публикации, который заинтересует читателя и расскажет о сути.',
+  announce:
+    'Краткий анонс публикации, который заинтересует читателя и расскажет о сути.',
   text: 'Полный текст публикации о том, как мы подключили PostgreSQL и Prisma ORM к сервису Blog, и что из этого вышло.',
 };
 
 describe('Blog post DTO validation', () => {
-  const validationPipe = new ValidationPipe({
-    transform: true,
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    stopAtFirstError: false,
-    transformOptions: {
-      enableImplicitConversion: true,
-    },
-    validationError: {
-      target: false,
-      value: false,
-    },
-  });
+  const validationPipe = createValidationPipe();
 
   async function transformBody<T extends object>(
     metatype: new () => T,
@@ -76,7 +62,7 @@ describe('Blog post DTO validation', () => {
         }),
       );
 
-      expect(messages).toContain(TAG_VALIDATION_MESSAGE);
+      expect(messages).toContain(PostTag.ValidationMessage);
     });
 
     it('rejects more than 8 tags', async () => {
@@ -97,9 +83,63 @@ describe('Blog post DTO validation', () => {
         }),
       );
 
-      expect(messages).toContain(
-        'tags must contain no more than 8 elements',
+      expect(messages).toContain('tags must contain no more than 8 elements');
+    });
+
+    it('accepts repeated tags beyond the limit and keeps unique lowercase ones', async () => {
+      const dto = (await transformBody(CreateTextPostDto, {
+        ...VALID_TEXT_POST,
+        tags: Array.from({ length: PostTag.MaxCount + 1 }, (_, index) =>
+          index % 2 === 0 ? 'NestJS' : 'nestjs',
+        ),
+      })) as CreateTextPostDto;
+
+      expect(dto.tags).toEqual(['nestjs']);
+    });
+  });
+
+  describe('videoUrl', () => {
+    const VALID_VIDEO_POST = {
+      type: 'video',
+      title: 'Как выучить TypeScript за двадцать минут',
+    };
+
+    it.each([
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      'https://m.youtube.com/watch?v=dQw4w9WgXcQ',
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s',
+      'https://www.youtube.com/watch?feature=share&v=dQw4w9WgXcQ',
+      'https://youtu.be/dQw4w9WgXcQ?si=AbC-12_x',
+      'https://www.youtube.com/shorts/aBcD3fGh1_-',
+      'https://www.youtube.com/embed/dQw4w9WgXcQ',
+      'https://www.youtube.com/live/dQw4w9WgXcQ',
+    ])('accepts %s', async (videoUrl) => {
+      await expect(
+        transformBody(CreateVideoPostDto, { ...VALID_VIDEO_POST, videoUrl }),
+      ).resolves.toBeInstanceOf(CreateVideoPostDto);
+    });
+
+    it.each([
+      'https://vimeo.com/123456',
+      'https://www.youtube.com/watch?v=abc123',
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQxyz',
+      'https://www.youtube.com/@channel',
+      'https://youtube.com.evil.com/watch?v=dQw4w9WgXcQ',
+      'https://evil.com/?u=https://youtu.be/dQw4w9WgXcQ',
+    ])('rejects %s', async (videoUrl) => {
+      const messages = await getValidationMessages(
+        transformBody(CreateVideoPostDto, { ...VALID_VIDEO_POST, videoUrl }),
       );
+
+      expect(messages).toContain(YoutubeUrl.ValidationMessage);
+    });
+
+    it('applies the same rule when a video post is edited', async () => {
+      const messages = await getValidationMessages(
+        transformBody(UpdatePostDto, { videoUrl: 'https://vimeo.com/123456' }),
+      );
+
+      expect(messages).toContain(YoutubeUrl.ValidationMessage);
     });
   });
 

@@ -1,14 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
+import dayjs from 'dayjs';
 import type { NotifyPostEntity } from '../notify-post/notify-post.entity';
 
+const NEWSLETTER_DATE_FORMAT = 'YYYY-MM-DD';
+const HTML_SPECIAL_CHARS_PATTERN = /[&<>"']/g;
+const HTML_ENTITIES: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
+// Один проход по строке: каждый спецсимвол заменяется своей HTML-сущностью.
 function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  return value.replace(
+    HTML_SPECIAL_CHARS_PATTERN,
+    (char) => HTML_ENTITIES[char],
+  );
 }
 
 @Injectable()
@@ -28,11 +38,10 @@ export class MailService {
   }
 
   private buildHtml(name: string, posts: NotifyPostEntity[]): string {
-    const items = posts
+    const postsHtml = posts
       .map((post) => {
-        const title =
-          post.title?.trim() || `Публикация типа «${post.type}»`;
-        const date = post.publishedAt.toISOString().slice(0, 10);
+        const title = post.title?.trim() || `Публикация типа «${post.type}»`;
+        const date = dayjs(post.publishedAt).format(NEWSLETTER_DATE_FORMAT);
         return `<li><strong>${escapeHtml(title)}</strong> — ${escapeHtml(
           post.type,
         )} (${date})</li>`;
@@ -42,7 +51,7 @@ export class MailService {
     return [
       `<h1>Здравствуйте, ${escapeHtml(name)}!</h1>`,
       '<p>С момента прошлой рассылки на Readme появились новые публикации:</p>',
-      `<ul>${items}</ul>`,
+      `<ul>${postsHtml}</ul>`,
     ].join('');
   }
 }

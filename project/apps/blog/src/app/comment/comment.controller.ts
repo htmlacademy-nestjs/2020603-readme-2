@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
 } from '@nestjs/common';
@@ -20,12 +21,14 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { fillRdo, fillRdoPagination } from '@project/shared-helpers';
+import {
+  ApiPaginatedResponse,
+  fillRdo,
+  fillRdoPagination,
+} from '@project/shared-helpers';
 import { CommentService } from './comment.service.js';
-import { CreateCommentDto } from './dto/create-comment.dto.js';
-import { GetCommentQueryDto } from './dto/get-comment-query.dto';
+import { CreateCommentDto, GetCommentQueryDto } from '@project/shared-dto';
 import { CommentRdo } from './rdo/comment.rdo';
-import { ApiPaginatedResponse } from '../common/api-paginated-response.decorator';
 import { CurrentUserId } from '../common/current-user-id.decorator';
 import { RequireUserId } from '../common/require-user-id.decorator';
 
@@ -36,36 +39,41 @@ export class CommentController {
 
   @Get()
   @ApiOperation({ summary: 'Получить комментарии к публикации' })
-  @ApiParam({ name: 'postId', description: 'Идентификатор публикации', format: 'uuid' })
+  @ApiParam({
+    name: 'postId',
+    description: 'Идентификатор публикации',
+    format: 'uuid',
+  })
   @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'page', required: false })
   @ApiPaginatedResponse(CommentRdo, 'Постраничный список комментариев')
+  @ApiBadRequestResponse({ description: 'Невалидные параметры запроса' })
   @ApiNotFoundResponse({ description: 'Публикация не найдена' })
   public async index(
-    @Param('postId') postId: string,
+    @Param('postId', ParseUUIDPipe) postId: string,
     @Query() query: GetCommentQueryDto,
   ) {
-    const comments = await this.commentService.getComments(postId, query);
+    const comments = await this.commentService.findByPostId(postId, query);
     return fillRdoPagination(CommentRdo, comments);
   }
 
   @Post()
   @RequireUserId()
   @ApiOperation({ summary: 'Добавить комментарий к публикации' })
-  @ApiParam({ name: 'postId', description: 'Идентификатор публикации', format: 'uuid' })
+  @ApiParam({
+    name: 'postId',
+    description: 'Идентификатор публикации',
+    format: 'uuid',
+  })
   @ApiCreatedResponse({ description: 'Комментарий создан', type: CommentRdo })
   @ApiBadRequestResponse({ description: 'Невалидные данные комментария' })
   @ApiNotFoundResponse({ description: 'Публикация не найдена' })
   public async create(
-    @Param('postId') postId: string,
+    @Param('postId', ParseUUIDPipe) postId: string,
     @CurrentUserId() userId: string,
     @Body() dto: CreateCommentDto,
   ) {
-    const comment = await this.commentService.createComment(
-      postId,
-      dto,
-      userId,
-    );
+    const comment = await this.commentService.create(postId, dto, userId);
     return fillRdo(CommentRdo, comment);
   }
 
@@ -73,15 +81,29 @@ export class CommentController {
   @RequireUserId()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Удалить комментарий' })
-  @ApiParam({ name: 'postId', description: 'Идентификатор публикации', format: 'uuid' })
-  @ApiParam({ name: 'id', description: 'Идентификатор комментария', format: 'uuid' })
+  @ApiParam({
+    name: 'postId',
+    description: 'Идентификатор публикации',
+    format: 'uuid',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Идентификатор комментария',
+    format: 'uuid',
+  })
   @ApiNoContentResponse({ description: 'Комментарий удалён' })
-  @ApiForbiddenResponse({ description: 'Удалять можно только свои комментарии' })
+  @ApiBadRequestResponse({
+    description: 'Невалидный идентификатор комментария',
+  })
+  @ApiForbiddenResponse({
+    description: 'Удалять можно только свои комментарии',
+  })
   @ApiNotFoundResponse({ description: 'Комментарий не найден' })
   public async destroy(
-    @Param('id') id: string,
+    @Param('postId', ParseUUIDPipe) postId: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUserId() userId: string,
   ) {
-    await this.commentService.deleteComment(id, userId);
+    await this.commentService.remove(postId, id, userId);
   }
 }

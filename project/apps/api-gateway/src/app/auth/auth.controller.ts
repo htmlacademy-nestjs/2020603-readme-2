@@ -1,11 +1,8 @@
 import {
   Body,
   Controller,
-  FileTypeValidator,
   HttpCode,
   HttpStatus,
-  MaxFileSizeValidator,
-  ParseFilePipe,
   Patch,
   Post,
   UploadedFile,
@@ -27,19 +24,22 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { MaxFileSize } from '@project/shared-types';
+import {
+  ChangeUserPasswordDto,
+  LoginUserDto,
+  RefreshTokenDto,
+  RegisterUserDto,
+} from '@project/shared-dto';
+import { createImageFilePipe } from '@project/shared-helpers';
 import { AuthService } from './auth.service';
-import { RegisterUserDto } from './dto/register-user.dto';
-import { LoginUserDto } from './dto/login-user.dto';
-import { ChangeUserPasswordDto } from './dto/change-user-password.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { UserRdo } from './rdo/user.rdo';
 import { LoggedUserRdo } from './rdo/logged-user.rdo';
 import { JwtAuthGuard } from '../common/jwt-auth.guard';
 import { AnonymousGuard } from '../common/anonymous.guard';
 import { CurrentUser } from '../common/current-user.decorator';
-import { AVATAR_MAX_FILE_SIZE, IMAGE_MIME_TYPE_PATTERN } from '../common/upload.constant';
 
-const registerBodySchema = {
+const REGISTER_BODY_SCHEMA = {
   schema: {
     type: 'object',
     required: ['email', 'name', 'password'],
@@ -60,23 +60,28 @@ export class AuthController {
   @Post('register')
   @UseGuards(AnonymousGuard)
   @UseInterceptors(FileInterceptor('avatar'))
-  @ApiOperation({ summary: 'Регистрация нового пользователя (с опциональным аватаром)' })
+  @ApiOperation({
+    summary: 'Регистрация нового пользователя (с опциональным аватаром)',
+  })
   @ApiConsumes('multipart/form-data')
-  @ApiBody(registerBodySchema)
-  @ApiCreatedResponse({ description: 'Пользователь успешно создан', type: UserRdo })
-  @ApiBadRequestResponse({ description: 'Невалидные данные регистрации или файла' })
-  @ApiConflictResponse({ description: 'Пользователь с таким email уже существует' })
-  @ApiForbiddenResponse({ description: 'Регистрация доступна только анонимным клиентам' })
+  @ApiBody(REGISTER_BODY_SCHEMA)
+  @ApiCreatedResponse({
+    description: 'Пользователь успешно создан',
+    type: UserRdo,
+  })
+  @ApiBadRequestResponse({
+    description: 'Невалидные данные регистрации или файла',
+  })
+  @ApiConflictResponse({
+    description: 'Пользователь с таким email уже существует',
+  })
+  @ApiForbiddenResponse({
+    description: 'Регистрация доступна только анонимным клиентам',
+  })
   public async register(
     @Body() dto: RegisterUserDto,
     @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: AVATAR_MAX_FILE_SIZE }),
-          new FileTypeValidator({ fileType: IMAGE_MIME_TYPE_PATTERN }),
-        ],
-        fileIsRequired: false,
-      }),
+      createImageFilePipe({ maxSize: MaxFileSize.Avatar, isRequired: false }),
     )
     file?: Express.Multer.File,
   ): Promise<UserRdo> {
@@ -88,8 +93,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Вход в систему (получение JWT токенов)' })
   @ApiOkResponse({ description: 'Успешная авторизация', type: LoggedUserRdo })
   @ApiBadRequestResponse({ description: 'Невалидные данные авторизации' })
-  @ApiUnauthorizedResponse({ description: 'Неверный пароль' })
-  @ApiNotFoundResponse({ description: 'Пользователь не найден' })
+  @ApiUnauthorizedResponse({ description: 'Неверный email или пароль' })
   public async login(@Body() dto: LoginUserDto): Promise<LoggedUserRdo> {
     return this.authService.login(dto);
   }
@@ -99,7 +103,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Обменять refresh-токен на новую пару токенов' })
   @ApiOkResponse({ description: 'Новая пара токенов', type: LoggedUserRdo })
   @ApiBadRequestResponse({ description: 'Невалидный формат токена' })
-  @ApiUnauthorizedResponse({ description: 'Refresh-токен недействителен или истёк' })
+  @ApiUnauthorizedResponse({
+    description: 'Refresh-токен недействителен или истёк',
+  })
   @ApiNotFoundResponse({ description: 'Пользователь не найден' })
   public async refresh(@Body() dto: RefreshTokenDto): Promise<LoggedUserRdo> {
     return this.authService.refresh(dto);
@@ -112,7 +118,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Смена пароля текущего пользователя' })
   @ApiOkResponse({ description: 'Пароль успешно изменён', type: UserRdo })
   @ApiBadRequestResponse({ description: 'Невалидные данные смены пароля' })
-  @ApiUnauthorizedResponse({ description: 'Требуется авторизация или текущий пароль неверен' })
+  @ApiUnauthorizedResponse({
+    description: 'Требуется авторизация или текущий пароль неверен',
+  })
   @ApiNotFoundResponse({ description: 'Пользователь не найден' })
   public async changePassword(
     @CurrentUser('sub') userId: string,

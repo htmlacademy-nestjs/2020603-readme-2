@@ -9,9 +9,7 @@ export class NotifyPostService {
 
   constructor(private readonly repository: NotifyPostRepository) {}
 
-  public async addPost(
-    dto: PostPublishedDto,
-  ): Promise<NotifyPostEntity> {
+  public async add(dto: PostPublishedDto): Promise<NotifyPostEntity> {
     const post = await this.repository.upsert(dto);
     this.logger.log(`Post queued for newsletter: ${post.postId}`);
     return post;
@@ -21,14 +19,14 @@ export class NotifyPostService {
    * Убирает пост из очереди рассылки. Уже разосланные записи не трогаем:
    * письмо отправлено, а запись остаётся историей и защитой от повтора.
    */
-  public async removePendingPost(postId: string): Promise<void> {
+  public async removePending(postId: string): Promise<void> {
     const removed = await this.repository.deletePending(postId);
     if (removed > 0) {
       this.logger.log(`Post removed from newsletter queue: ${postId}`);
     }
   }
 
-  public async getPendingPosts(): Promise<NotifyPostEntity[]> {
+  public async getPending(): Promise<NotifyPostEntity[]> {
     return this.repository.findPending();
   }
 

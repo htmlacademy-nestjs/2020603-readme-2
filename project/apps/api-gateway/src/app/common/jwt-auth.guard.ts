@@ -1,10 +1,16 @@
-import {CanActivate, ExecutionContext, Inject, Injectable} from '@nestjs/common';
-import type {ConfigType} from '@nestjs/config';
-import {JwtService} from '@nestjs/jwt';
-import type {Request} from 'express';
-import type {TokenPayload} from '@project/shared-types';
-import {jwtConfig} from '../config';
-import {InvalidTokenError, TokenNotProvidedError} from './auth-token.errors';
+import {
+  CanActivate,
+  ExecutionContext,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import type { Request } from 'express';
+import type { TokenPayload } from '@project/shared-types';
+import { jwtConfig } from '../config';
+import { InvalidTokenError, TokenNotProvidedError } from './auth-token.errors';
+import { extractBearerToken } from './extract-bearer-token';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -15,8 +21,10 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   public async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request & { user?: TokenPayload }>();
-    const token = this.extractToken(request);
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { user?: TokenPayload }>();
+    const token = extractBearerToken(request);
 
     if (!token) {
       throw new TokenNotProvidedError();
@@ -30,10 +38,5 @@ export class JwtAuthGuard implements CanActivate {
     } catch {
       throw new InvalidTokenError();
     }
-  }
-
-  private extractToken(request: Request): string | undefined {
-    const [type, token] = (request.headers.authorization ?? '').split(' ');
-    return type === 'Bearer' ? token : undefined;
   }
 }

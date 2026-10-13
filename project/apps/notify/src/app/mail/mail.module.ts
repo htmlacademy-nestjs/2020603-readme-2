@@ -10,6 +10,9 @@ import { MailService } from './mail.service';
       inject: [mailConfig.KEY],
       useFactory: (config: ConfigType<typeof mailConfig>) => ({
         transport: {
+          // Пул переиспользует несколько соединений вместо отдельного
+          // соединения (и DNS-запроса) на каждое письмо рассылки.
+          pool: true,
           host: config.host,
           port: config.port,
           secure: false,

@@ -34,7 +34,7 @@ export class FileRdo {
   public createdAt!: Date;
 
   // Готовый абсолютный URL отдачи статики. subDirectory/path наружу не отдаём —
-  // их кодирует url (см. file.service.ts → withUrl).
+  // их кодирует url (см. file.service.ts → addUrl).
   @ApiProperty({
     description: 'Абсолютный URL для отдачи файла через статику',
     example: 'http://localhost:3004/static/avatars/2026/01/<uuid>.jpg',

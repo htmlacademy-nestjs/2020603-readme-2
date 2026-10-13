@@ -20,7 +20,7 @@ module.exports = {
       outputHashing: 'none',
       generatePackageJson: false,
       sourceMap: true,
-      useTsconfigPaths: true
+      useTsconfigPaths: true,
     }),
   ],
 };

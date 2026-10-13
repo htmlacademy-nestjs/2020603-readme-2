@@ -23,11 +23,17 @@ export class PostRdo {
   @Expose()
   public isRepost!: boolean;
 
-  @ApiProperty({ description: 'Идентификатор оригинального автора', required: false })
+  @ApiProperty({
+    description: 'Идентификатор оригинального автора',
+    required: false,
+  })
   @Expose()
   public originalAuthorId?: string;
 
-  @ApiProperty({ description: 'Идентификатор оригинальной публикации', required: false })
+  @ApiProperty({
+    description: 'Идентификатор оригинальной публикации',
+    required: false,
+  })
   @Expose()
   public originalPostId?: string;
 

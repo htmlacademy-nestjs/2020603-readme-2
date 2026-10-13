@@ -1,12 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 export class SubscriptionParamDto {
   @ApiProperty({
-    example: '6571e8c9b4a1f2d3e4a5b6c8',
+    example: '9c8e7b6a-5f4d-43c2-9a1b-0e9d8c7b6a52',
     description: 'Идентификатор пользователя, на которого оформляется подписка',
   })
   @IsString()
-  @MinLength(1)
+  @IsNotEmpty()
   public followingId!: string;
 }

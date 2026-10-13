@@ -8,10 +8,10 @@ const POST_ID = 'a1d2c3b4-5e6f-47a8-9b0c-1d2e3f4a5b6c';
 const BLOG_URL = 'http://localhost:3002/api';
 
 const SERVICES_CONFIG = {
-  usersServiceUrl: 'http://localhost:3001/api',
-  blogServiceUrl: BLOG_URL,
-  fileStorageServiceUrl: 'http://localhost:3004/api',
-  notifyServiceUrl: 'http://localhost:3003/api',
+  usersUrl: 'http://localhost:3001/api',
+  blogUrl: BLOG_URL,
+  fileStorageUrl: 'http://localhost:3004/api',
+  notifyUrl: 'http://localhost:3003/api',
   httpTimeout: 5000,
 };
 

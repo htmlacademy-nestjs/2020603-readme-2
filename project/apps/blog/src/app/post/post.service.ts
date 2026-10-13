@@ -9,16 +9,16 @@ import {
   VideoPost,
 } from '@project/shared-types';
 import type { PaginationResult, Post } from '@project/shared-types';
+import { normalizeTags } from '@project/shared-helpers';
 import { PostRepository } from './post.repository';
 import { NotifyClientService } from '../notify-client/notify-client.service';
 import { SubscriptionService } from '../subscription/subscription.service';
-import type { GetPostQueryDto } from './dto/get-post-query.dto';
+import type { GetPostQueryDto, UpdatePostDto } from '@project/shared-dto';
 import type { CreateVideoPostDto } from './dto/create-video-post.dto';
 import type { CreateTextPostDto } from './dto/create-text-post.dto';
 import type { CreateQuotePostDto } from './dto/create-quote-post.dto';
 import type { CreatePhotoPostDto } from './dto/create-photo-post.dto';
 import type { CreateLinkPostDto } from './dto/create-link-post.dto';
-import type { UpdatePostDto } from './dto/update-post.dto';
 import {
   PostNotFoundError,
   PostEditForbiddenError,
@@ -41,20 +41,12 @@ export class PostService {
     private readonly subscriptionService: SubscriptionService,
   ) {}
 
-  public async createPost(dto: CreatePostDto, authorId: string): Promise<Post> {
-    const now = new Date();
-    const tags = this.normalizeTags(dto.tags ?? []);
-
-    const post = this.buildPostByDto(dto);
-    post.id = '';
+  public async create(dto: CreatePostDto, authorId: string): Promise<Post> {
+    const post = this.buildFromDto(dto);
+    this.assignNewRecordFields(post, authorId);
     post.status = PostStatus.Published;
-    post.authorId = authorId;
     post.isRepost = false;
-    post.tags = tags;
-    post.createdAt = now;
-    post.publishedAt = now;
-    post.likesCount = 0;
-    post.commentsCount = 0;
+    post.tags = normalizeTags(dto.tags ?? []);
 
     const saved = await this.postRepository.save(post);
     this.notifyClient.publishPostPublished(saved);
@@ -65,9 +57,11 @@ export class PostService {
    * Детальная информация о публикации (§2.14). Черновик виден только автору:
    * для остальных он «не найден», чтобы не раскрывать его существование (§3.5).
    */
-  public async findPost(id: string, requesterId?: string): Promise<Post> {
+  public async getById(id: string, requesterId?: string): Promise<Post> {
     const post = await this.postRepository.findById(id);
-    if (!post) throw new PostNotFoundError(id);
+    if (!post) {
+      throw new PostNotFoundError(id);
+    }
 
     if (post.status !== PostStatus.Published && post.authorId !== requesterId) {
       throw new PostNotFoundError(id);
@@ -80,7 +74,7 @@ export class PostService {
    * Публикация в статусе «Опубликована»: лайки (§5.2), комментарии (§6.5) и
    * репост (§2.13) применимы только к ней.
    */
-  public async findPublishedPost(id: string): Promise<Post> {
+  public async getPublishedById(id: string): Promise<Post> {
     const post = await this.postRepository.findById(id);
     if (!post || post.status !== PostStatus.Published) {
       throw new PostNotFoundError(id);
@@ -103,7 +97,8 @@ export class PostService {
     userId: string,
     query: GetPostQueryDto,
   ): Promise<PaginationResult<Post>> {
-    const followingIds = await this.subscriptionService.findFollowingIds(userId);
+    const followingIds =
+      await this.subscriptionService.findFollowingIds(userId);
     const authorIds = [...new Set([userId, ...followingIds])];
     return this.postRepository.findPublishedByAuthors(authorIds, query);
   }
@@ -119,13 +114,12 @@ export class PostService {
     return this.postRepository.findByTitle(title);
   }
 
-  public async updatePost(
+  public async update(
     id: string,
     dto: UpdatePostDto,
     authorId: string,
   ): Promise<Post> {
-    const post = await this.findPost(id, authorId);
-    if (post.authorId !== authorId) throw new PostEditForbiddenError();
+    const post = await this.getOwned(id, authorId);
     const wasPublished = post.status === PostStatus.Published;
 
     // Берём только переданные поля: у скомпилированного DTO необъявленные
@@ -135,7 +129,7 @@ export class PostService {
     );
 
     Object.assign(post, patch, {
-      tags: dto.tags ? this.normalizeTags(dto.tags) : post.tags,
+      tags: dto.tags ? normalizeTags(dto.tags) : post.tags,
     });
 
     const updated = await this.postRepository.update(post);
@@ -143,9 +137,8 @@ export class PostService {
     return updated;
   }
 
-  public async deletePost(id: string, authorId: string): Promise<void> {
-    const post = await this.findPost(id, authorId);
-    if (post.authorId !== authorId) throw new PostEditForbiddenError();
+  public async remove(id: string, authorId: string): Promise<void> {
+    const post = await this.getOwned(id, authorId);
     await this.postRepository.softDeleteById(id);
 
     // Черновик уже снят с рассылки при переходе в этот статус.
@@ -154,34 +147,50 @@ export class PostService {
     }
   }
 
-  public async repost(postId: string, authorId: string): Promise<Post> {
-    const original = await this.findPublishedPost(postId);
+  public async repost(id: string, authorId: string): Promise<Post> {
+    const original = await this.getPublishedById(id);
 
     if (original.authorId === authorId) {
       throw new SelfRepostError();
     }
 
-    const existingRepost = await this.postRepository.findRepost(postId, authorId);
+    const existingRepost = await this.postRepository.findRepost(id, authorId);
     if (existingRepost) {
-      throw new PostAlreadyRepostedError(postId);
+      throw new PostAlreadyRepostedError(id);
     }
 
-    const now = new Date();
-
     const reposted = this.cloneByType(original);
-    reposted.id = '';
-    reposted.authorId = authorId;
+    this.assignNewRecordFields(reposted, authorId);
     reposted.originalAuthorId = original.authorId;
     reposted.originalPostId = original.id;
     reposted.isRepost = true;
-    reposted.publishedAt = now;
-    reposted.createdAt = now;
-    reposted.likesCount = 0;
-    reposted.commentsCount = 0;
 
     const saved = await this.postRepository.save(reposted);
     this.notifyClient.publishPostPublished(saved);
     return saved;
+  }
+
+  /** Публикация, которую редактирует или удаляет её автор (§2.2). */
+  private async getOwned(id: string, authorId: string): Promise<Post> {
+    const post = await this.getById(id, authorId);
+    if (post.authorId !== authorId) {
+      throw new PostEditForbiddenError();
+    }
+    return post;
+  }
+
+  /**
+   * Поля новой записи: идентификатор и счётчики выдаёт база, автор — текущий
+   * пользователь, дата публикации при первом сохранении равна дате создания (§2.11).
+   */
+  private assignNewRecordFields(post: Post, authorId: string): void {
+    const now = new Date();
+    post.id = '';
+    post.authorId = authorId;
+    post.createdAt = now;
+    post.publishedAt = now;
+    post.likesCount = 0;
+    post.commentsCount = 0;
   }
 
   /**
@@ -198,11 +207,7 @@ export class PostService {
     }
   }
 
-  private normalizeTags(tags: string[]): string[] {
-    return [...new Set(tags.map((tag) => tag.toLowerCase()))];
-  }
-
-  private buildPostByDto(dto: CreatePostDto): Post {
+  private buildFromDto(dto: CreatePostDto): Post {
     switch (dto.type) {
       case PostType.Video: {
         const post = new VideoPost();

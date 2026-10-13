@@ -1,4 +1,3 @@
-
 import { plainToInstance, ClassConstructor } from 'class-transformer';
 import { validateSync } from 'class-validator';
 
@@ -24,7 +23,9 @@ export function validateEnvironment<T extends object>(
   });
 
   if (errors.length > 0) {
-    const errorMessages = errors.map((error) => `  - ${error.toString()}`).join('\n');
+    const errorMessages = errors
+      .map((error) => `  - ${error.toString()}`)
+      .join('\n');
     throw new Error(`Invalid environment configuration:\n${errorMessages}`);
   }
 

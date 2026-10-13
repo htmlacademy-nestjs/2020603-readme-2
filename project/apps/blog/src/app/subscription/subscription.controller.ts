@@ -40,9 +40,7 @@ export class SubscriptionController {
     type: [SubscriptionRdo],
   })
   public async index(@CurrentUserId() userId: string) {
-    const subscriptions = await this.subscriptionService.findSubscriptions(
-      userId,
-    );
+    const subscriptions = await this.subscriptionService.findByFollower(userId);
     return fillRdoList(SubscriptionRdo, subscriptions);
   }
 
@@ -56,8 +54,10 @@ export class SubscriptionController {
     description: 'Количество подписчиков пользователя',
     type: FollowersCountRdo,
   })
-  @ApiBadRequestResponse({ description: 'Невалидный идентификатор пользователя' })
-  public async followersCount(
+  @ApiBadRequestResponse({
+    description: 'Невалидный идентификатор пользователя',
+  })
+  public async countFollowers(
     @Param() params: FollowersCountParamDto,
   ): Promise<FollowersCountRdo> {
     const count = await this.subscriptionService.countFollowers(params.userId);
@@ -71,9 +71,17 @@ export class SubscriptionController {
     name: 'followingId',
     description: 'Идентификатор пользователя, на которого оформляется подписка',
   })
-  @ApiCreatedResponse({ description: 'Подписка создана', type: SubscriptionRdo })
-  @ApiBadRequestResponse({ description: 'Невалидный идентификатор пользователя' })
-  @ApiConflictResponse({ description: 'Подписка уже существует или пользователь подписывается на себя' })
+  @ApiCreatedResponse({
+    description: 'Подписка создана',
+    type: SubscriptionRdo,
+  })
+  @ApiBadRequestResponse({
+    description: 'Невалидный идентификатор пользователя',
+  })
+  @ApiConflictResponse({
+    description:
+      'Подписка уже существует или пользователь подписывается на себя',
+  })
   public async subscribe(
     @CurrentUserId() userId: string,
     @Param() params: SubscriptionParamDto,
@@ -94,7 +102,9 @@ export class SubscriptionController {
     description: 'Идентификатор пользователя, от которого нужно отписаться',
   })
   @ApiNoContentResponse({ description: 'Подписка удалена' })
-  @ApiBadRequestResponse({ description: 'Невалидный идентификатор пользователя' })
+  @ApiBadRequestResponse({
+    description: 'Невалидный идентификатор пользователя',
+  })
   @ApiNotFoundResponse({ description: 'Подписка не найдена' })
   public async unsubscribe(
     @CurrentUserId() userId: string,

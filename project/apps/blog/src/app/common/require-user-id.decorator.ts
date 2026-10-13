@@ -11,9 +11,12 @@ export function RequireUserId() {
     UseGuards(UserIdGuard),
     ApiHeader({
       name: USER_ID_HEADER,
-      description: 'Идентификатор текущего пользователя (проставляет API Gateway)',
+      description:
+        'Идентификатор текущего пользователя (проставляет API Gateway)',
       required: true,
     }),
-    ApiUnauthorizedResponse({ description: 'Не передан идентификатор пользователя' }),
+    ApiUnauthorizedResponse({
+      description: 'Не передан идентификатор пользователя',
+    }),
   );
 }

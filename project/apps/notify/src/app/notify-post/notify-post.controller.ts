@@ -14,7 +14,7 @@ export class NotifyPostController {
   public async handlePostPublished(
     @Payload() dto: PostPublishedDto,
   ): Promise<void> {
-    await this.notifyPostService.addPost(dto);
+    await this.notifyPostService.add(dto);
   }
 
   /** Черновик или удалённый пост снимается с рассылки, если она ещё не прошла. */
@@ -22,6 +22,6 @@ export class NotifyPostController {
   public async handlePostUnpublished(
     @Payload() dto: PostUnpublishedDto,
   ): Promise<void> {
-    await this.notifyPostService.removePendingPost(dto.postId);
+    await this.notifyPostService.removePending(dto.postId);
   }
 }

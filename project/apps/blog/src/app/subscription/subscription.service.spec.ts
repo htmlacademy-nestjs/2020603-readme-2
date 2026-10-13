@@ -28,7 +28,9 @@ describe('SubscriptionService', () => {
       save: jest.fn(),
       deleteByFollowerAndFollowing: jest.fn(),
     };
-    service = new SubscriptionService(repository as SubscriptionRepository);
+    service = new SubscriptionService(
+      repository as unknown as SubscriptionRepository,
+    );
   });
 
   it('should create subscription', async () => {
@@ -66,7 +68,9 @@ describe('SubscriptionService', () => {
   it('should unsubscribe existing subscription', async () => {
     repository.findByFollowerAndFollowing.mockResolvedValue(new Subscription());
 
-    await expect(service.unsubscribe('user-1', 'user-2')).resolves.toBeUndefined();
+    await expect(
+      service.unsubscribe('user-1', 'user-2'),
+    ).resolves.toBeUndefined();
     expect(repository.deleteByFollowerAndFollowing).toHaveBeenCalledWith(
       'user-1',
       'user-2',
@@ -76,9 +80,9 @@ describe('SubscriptionService', () => {
   it('should reject missing subscription deletion', async () => {
     repository.findByFollowerAndFollowing.mockResolvedValue(null);
 
-    await expect(service.unsubscribe('user-1', 'user-2')).rejects.toBeInstanceOf(
-      SubscriptionNotFoundError,
-    );
+    await expect(
+      service.unsubscribe('user-1', 'user-2'),
+    ).rejects.toBeInstanceOf(SubscriptionNotFoundError);
     expect(repository.deleteByFollowerAndFollowing).not.toHaveBeenCalled();
   });
 });

@@ -34,13 +34,16 @@ export class SubscriptionsController {
   @Get()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Получить подписки текущего пользователя (с карточками пользователей)' })
+  @ApiOperation({
+    summary:
+      'Получить подписки текущего пользователя (с карточками пользователей)',
+  })
   @ApiOkResponse({
     description: 'Список подписок текущего пользователя',
     type: [SubscriptionWithUserRdo],
   })
   public async index(@CurrentUser('sub') userId: string) {
-    return this.subscriptionsService.findSubscriptions(userId);
+    return this.subscriptionsService.findByFollower(userId);
   }
 
   @Post(':followingId')
@@ -51,9 +54,18 @@ export class SubscriptionsController {
     name: 'followingId',
     description: 'Идентификатор пользователя, на которого оформляется подписка',
   })
-  @ApiCreatedResponse({ description: 'Подписка создана', type: SubscriptionWithUserRdo })
-  @ApiBadRequestResponse({ description: 'Невалидный идентификатор пользователя' })
-  @ApiConflictResponse({ description: 'Подписка уже существует или пользователь подписывается на себя' })
+  @ApiCreatedResponse({
+    description: 'Подписка создана',
+    type: SubscriptionWithUserRdo,
+  })
+  @ApiBadRequestResponse({
+    description: 'Невалидный идентификатор пользователя',
+  })
+  @ApiNotFoundResponse({ description: 'Пользователь не найден' })
+  @ApiConflictResponse({
+    description:
+      'Подписка уже существует или пользователь подписывается на себя',
+  })
   public async subscribe(
     @Param() params: SubscriptionParamDto,
     @CurrentUser('sub') userId: string,
@@ -71,7 +83,9 @@ export class SubscriptionsController {
     description: 'Идентификатор пользователя, от которого нужно отписаться',
   })
   @ApiNoContentResponse({ description: 'Подписка удалена' })
-  @ApiBadRequestResponse({ description: 'Невалидный идентификатор пользователя' })
+  @ApiBadRequestResponse({
+    description: 'Невалидный идентификатор пользователя',
+  })
   @ApiNotFoundResponse({ description: 'Подписка не найдена' })
   public async unsubscribe(
     @Param() params: SubscriptionParamDto,

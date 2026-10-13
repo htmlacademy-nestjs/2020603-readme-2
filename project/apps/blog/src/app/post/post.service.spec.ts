@@ -101,19 +101,19 @@ describe('PostService', () => {
     });
   });
 
-  describe('findPost', () => {
+  describe('getById', () => {
     it('returns a published post to anyone', async () => {
       const post = buildPost();
       repository.findById.mockResolvedValue(post);
 
-      await expect(service.findPost(POST_ID)).resolves.toBe(post);
+      await expect(service.getById(POST_ID)).resolves.toBe(post);
     });
 
     it('returns an own draft to its author', async () => {
       const draft = buildPost({ status: PostStatus.Draft });
       repository.findById.mockResolvedValue(draft);
 
-      await expect(service.findPost(POST_ID, AUTHOR_ID)).resolves.toBe(draft);
+      await expect(service.getById(POST_ID, AUTHOR_ID)).resolves.toBe(draft);
     });
 
     it("hides someone else's draft behind 404", async () => {
@@ -122,37 +122,37 @@ describe('PostService', () => {
       );
 
       await expect(
-        service.findPost(POST_ID, OTHER_USER_ID),
+        service.getById(POST_ID, OTHER_USER_ID),
       ).rejects.toBeInstanceOf(PostNotFoundError);
     });
   });
 
-  describe('findPublishedPost', () => {
+  describe('getPublishedById', () => {
     it('rejects a draft even for its author', async () => {
       repository.findById.mockResolvedValue(
         buildPost({ status: PostStatus.Draft }),
       );
 
-      await expect(
-        service.findPublishedPost(POST_ID),
-      ).rejects.toBeInstanceOf(PostNotFoundError);
+      await expect(service.getPublishedById(POST_ID)).rejects.toBeInstanceOf(
+        PostNotFoundError,
+      );
     });
 
     it('rejects a missing post', async () => {
       repository.findById.mockResolvedValue(null);
 
-      await expect(
-        service.findPublishedPost(POST_ID),
-      ).rejects.toBeInstanceOf(PostNotFoundError);
+      await expect(service.getPublishedById(POST_ID)).rejects.toBeInstanceOf(
+        PostNotFoundError,
+      );
     });
   });
 
-  describe('updatePost', () => {
+  describe('update', () => {
     it("rejects editing someone else's post", async () => {
       repository.findById.mockResolvedValue(buildPost());
 
       await expect(
-        service.updatePost(POST_ID, { title: 'x'.repeat(25) }, OTHER_USER_ID),
+        service.update(POST_ID, { title: 'x'.repeat(25) }, OTHER_USER_ID),
       ).rejects.toBeInstanceOf(PostEditForbiddenError);
       expect(repository.update).not.toHaveBeenCalled();
     });
@@ -161,7 +161,7 @@ describe('PostService', () => {
       repository.findById.mockResolvedValue(buildPost());
       repository.update.mockImplementation(async (post) => post);
 
-      const updated = await service.updatePost(
+      const updated = await service.update(
         POST_ID,
         {
           // undefined-поля скомпилированного DTO не должны затирать данные
@@ -172,7 +172,9 @@ describe('PostService', () => {
         AUTHOR_ID,
       );
 
-      expect(updated.title).toBe('Мой первый пост о TypeScript разработке');
+      expect((updated as TextPost).title).toBe(
+        'Мой первый пост о TypeScript разработке',
+      );
       expect(updated.status).toBe(PostStatus.Draft);
       expect(updated.tags).toEqual(['nestjs', 'prisma']);
     });
@@ -185,9 +187,11 @@ describe('PostService', () => {
       it('unpublishes a post that became a draft', async () => {
         repository.findById.mockResolvedValue(buildPost());
 
-        await service.updatePost(POST_ID, { status: PostStatus.Draft }, AUTHOR_ID);
+        await service.update(POST_ID, { status: PostStatus.Draft }, AUTHOR_ID);
 
-        expect(notifyClient.publishPostUnpublished).toHaveBeenCalledWith(POST_ID);
+        expect(notifyClient.publishPostUnpublished).toHaveBeenCalledWith(
+          POST_ID,
+        );
         expect(notifyClient.publishPostPublished).not.toHaveBeenCalled();
       });
 
@@ -196,7 +200,7 @@ describe('PostService', () => {
           buildPost({ status: PostStatus.Draft }),
         );
 
-        const updated = await service.updatePost(
+        const updated = await service.update(
           POST_ID,
           { status: PostStatus.Published },
           AUTHOR_ID,
@@ -209,7 +213,7 @@ describe('PostService', () => {
       it('re-sends an edited published post so the digest gets the new title', async () => {
         repository.findById.mockResolvedValue(buildPost());
 
-        const updated = await service.updatePost(
+        const updated = await service.update(
           POST_ID,
           { title: 'Новый заголовок поста о TypeScript' },
           AUTHOR_ID,
@@ -223,7 +227,7 @@ describe('PostService', () => {
           buildPost({ status: PostStatus.Draft }),
         );
 
-        await service.updatePost(
+        await service.update(
           POST_ID,
           { title: 'Правка черновика о TypeScript и NestJS' },
           AUTHOR_ID,
@@ -235,12 +239,12 @@ describe('PostService', () => {
     });
   });
 
-  describe('deletePost', () => {
+  describe('remove', () => {
     it("rejects deleting someone else's post", async () => {
       repository.findById.mockResolvedValue(buildPost());
 
       await expect(
-        service.deletePost(POST_ID, OTHER_USER_ID),
+        service.remove(POST_ID, OTHER_USER_ID),
       ).rejects.toBeInstanceOf(PostEditForbiddenError);
       expect(repository.softDeleteById).not.toHaveBeenCalled();
     });
@@ -248,7 +252,7 @@ describe('PostService', () => {
     it('removes a published post from the newsletter queue', async () => {
       repository.findById.mockResolvedValue(buildPost());
 
-      await service.deletePost(POST_ID, AUTHOR_ID);
+      await service.remove(POST_ID, AUTHOR_ID);
 
       expect(repository.softDeleteById).toHaveBeenCalledWith(POST_ID);
       expect(notifyClient.publishPostUnpublished).toHaveBeenCalledWith(POST_ID);
@@ -259,7 +263,7 @@ describe('PostService', () => {
         buildPost({ status: PostStatus.Draft }),
       );
 
-      await service.deletePost(POST_ID, AUTHOR_ID);
+      await service.remove(POST_ID, AUTHOR_ID);
 
       expect(repository.softDeleteById).toHaveBeenCalledWith(POST_ID);
       expect(notifyClient.publishPostUnpublished).not.toHaveBeenCalled();

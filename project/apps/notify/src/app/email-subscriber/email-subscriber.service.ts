@@ -9,15 +9,13 @@ export class EmailSubscriberService {
 
   constructor(private readonly repository: EmailSubscriberRepository) {}
 
-  public async addSubscriber(
-    dto: UserRegisteredDto,
-  ): Promise<EmailSubscriberEntity> {
+  public async add(dto: UserRegisteredDto): Promise<EmailSubscriberEntity> {
     const subscriber = await this.repository.upsert(dto);
     this.logger.log(`Subscriber stored: ${subscriber.email}`);
     return subscriber;
   }
 
-  public async getAllSubscribers(): Promise<EmailSubscriberEntity[]> {
+  public async getAll(): Promise<EmailSubscriberEntity[]> {
     return this.repository.findAll();
   }
 }

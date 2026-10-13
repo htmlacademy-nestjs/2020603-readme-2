@@ -13,18 +13,12 @@ import { NotifyClient } from './notify.client';
     ConfigModule.forFeature(servicesConfig),
     HttpModule.registerAsync({
       inject: [servicesConfig.KEY],
-      useFactory: (cfg: ConfigType<typeof servicesConfig>) => ({
-        timeout: cfg.httpTimeout,
+      useFactory: (config: ConfigType<typeof servicesConfig>) => ({
+        timeout: config.httpTimeout,
       }),
     }),
   ],
   providers: [UsersClient, BlogClient, FileStorageClient, NotifyClient],
-  exports: [
-    UsersClient,
-    BlogClient,
-    FileStorageClient,
-    NotifyClient,
-    HttpModule,
-  ],
+  exports: [UsersClient, BlogClient, FileStorageClient, NotifyClient],
 })
 export class ClientsModule {}

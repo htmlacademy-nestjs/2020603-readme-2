@@ -8,15 +8,20 @@ import { defineConfig } from 'prisma/config';
 const blogRoot = import.meta.dirname;
 loadEnv({ path: path.join(blogRoot, '.env') });
 
-const { POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB } =
-  process.env;
+const {
+  POSTGRES_USER,
+  POSTGRES_PASSWORD,
+  POSTGRES_HOST,
+  POSTGRES_PORT,
+  POSTGRES_DB,
+} = process.env;
 
 export default defineConfig({
   schema: path.join(blogRoot, 'prisma', 'schema.prisma'),
   migrations: {
     path: path.join(blogRoot, 'prisma', 'migrations'),
     // запуск seed-скрипта (`prisma db seed` и автоматически после `migrate reset`)
-    seed: 'tsx apps/blog/prisma/seed.ts',
+    seed: 'tsx --tsconfig tsconfig.scripts.json apps/blog/prisma/seed.ts',
   },
   datasource: {
     // строка подключения только для CLI (migrate/db); рантайм использует driver adapter
