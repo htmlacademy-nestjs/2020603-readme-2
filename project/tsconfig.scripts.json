@@ -1,0 +1,17 @@
+// Настройки для запуска TypeScript-скриптов через tsx: сиды (`nx db-fill`) и
+// apps/notify/tools. tsx применяет tsconfig только к файлам из include, а
+// корневой tsconfig.json пустой (files: []). Без experimentalDecorators
+// декораторы class-validator в libs/ компилируются по стандарту TC39 и падают.
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "include": [
+    "apps/*/prisma/**/*.ts",
+    "apps/*/tools/**/*.ts",
+    "apps/*/src/**/*.ts",
+    "libs/*/src/**/*.ts"
+  ]
+}
