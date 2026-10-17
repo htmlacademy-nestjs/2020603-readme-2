@@ -209,6 +209,11 @@ HTML Academy "Readme" course project: NestJS 11 + Nx 22 monorepo, ESM, `"type": 
 - Builds compile with tsc at `target: es2023`, so `useDefineForClassFields` makes declared-but-unset DTO fields exist as own `undefined` properties. Filter them before `Object.assign`-ing a DTO onto a domain object (see `PostService.update`).
 - Old local Mongo data may still exist under ignored `apps/users/mongodb/`; it is no longer used.
 
+## Full Docker Stack
+- For reviewers without Node.js/PostgreSQL: `cd project && docker compose up -d --build --wait` (`project/compose.yaml`, project name `readme`). It builds one image `readme-app` from `project/Dockerfile` (`node:24-bookworm-slim` + `openssl`; `npm ci`, `nx run-many -t db-generate`, `nx run-many -t build`) and starts 4 Postgres, RabbitMQ, Mailpit and the 5 services. Gateway on `http://localhost:3005/api` (`/spec`), Mailpit `http://localhost:8025`, RabbitMQ UI `http://localhost:15672`.
+- `docker/start.sh <app>` runs `prisma migrate deploy`, seeds once (marker `/app/state/<app>.seeded` in the `seed-state` volume) and `exec`s `node apps/<app>/dist/main.js`. `docker compose down` keeps data; `down -v` resets to demo data on the next `up`.
+- Containers use `apps/<app>/.env.example` via `env_file` and override only container hosts; no `.env` file and no new secrets. App healthchecks fetch `/spec`; DB ports are not published. `project/.dockerignore` limits the context to sources; `project/.gitattributes` keeps `*.sh` and `.env.example` in LF for Windows checkouts.
+
 ## Local Infra
 - Users Postgres: `docker compose -f apps/users/compose.yaml up -d`
 - Users DB: `localhost:5434`, database `readme-users`, user `admin`, password `test`

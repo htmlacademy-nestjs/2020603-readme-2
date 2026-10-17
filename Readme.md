@@ -3,6 +3,26 @@
 * Студент: [Омак Ооржак](https://up.htmlacademy.ru/nodejs-2-individual/2/user/2020603).
 * Наставник: `Владислав Горшков`.
 
+## Запуск проекта
+
+Нужен только [Docker](https://docs.docker.com/get-started/get-docker/) с Compose v2. Node.js, PostgreSQL и RabbitMQ устанавливать не нужно: образ сам ставит Node.js 24 LTS и зависимости, собирает сервисы, применяет миграции и загружает демо-данные.
+
+```bash
+git clone -b module8-task1 https://github.com/omak-oorzhak/2020603-readme-2.git
+cd 2020603-readme-2/project
+docker compose up -d --build --wait
+```
+
+Первый запуск занимает несколько минут. Команда завершается, когда все сервисы готовы.
+
+- API: http://localhost:3005/api, документация OpenAPI: http://localhost:3005/spec
+- Письма рассылки (Mailpit): http://localhost:8025
+- Демо-пользователи: `ivan@example.com`, `maria@example.com`, `pavel@example.com`, пароль `secret123`
+
+Остановить: `docker compose down`. Сбросить данные до демо-набора: `docker compose down -v`. Нужны свободные порты 3001–3005, 8025 и 15672.
+
+Подробности, запуск без Docker и готовые сценарии запросов — в [specification.md](specification.md#запуск-проекта).
+
 ---
 
 _Не удаляйте и не изменяйте папки и файлы:_

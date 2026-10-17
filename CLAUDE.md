@@ -125,6 +125,14 @@ HTML Academy "Readme" course: NestJS 11 + Nx 22 monorepo, ESM (`"type": "module"
 - `.env` files are git-ignored — copy from the per-app `.env.example`. Old Mongo data under `apps/users/mongodb/` is unused.
 - Builds use tsc with `target: es2023`, so declared-but-unset DTO fields exist as own `undefined` properties. Never `Object.assign` a DTO onto a domain object without filtering them out.
 
+## Full Docker Stack (for reviewers)
+- `project/compose.yaml` (`name: readme`) runs everything: 4× `postgres:18`, RabbitMQ, Mailpit and the 5 services. Start from `project/`: `docker compose up -d --build --wait`. Documented in root `Readme.md` and `specification.md` («Быстрый запуск в Docker»). The per-app `apps/<app>/compose.yaml` files stay for local development (infra only).
+- One image `readme-app` (`project/Dockerfile`, `node:24-bookworm-slim` + `openssl` for the Prisma CLI): `npm ci`, `nx run-many -t db-generate`, `nx run-many -t build`. Entry point `sh docker/start.sh <app>`: `prisma migrate deploy`, then `prisma db seed` only on the first start (marker `/app/state/<app>.seeded` in the `seed-state` volume), then `exec node apps/<app>/dist/main.js`. A restart keeps data; `docker compose down -v` drops DBs and markers together, so the next `up` reseeds.
+- No `.env` in containers: services read `env_file: apps/<app>/.env.example` (missing `apps/<app>/.env` is skipped by `ConfigModule`), compose overrides only hosts (`POSTGRES_HOST`/`POSTGRES_PORT=5432`, `RABBITMQ_HOST`, `MAIL_SMTP_HOST=mailpit`, gateway `*_SERVICE_URL=http://<service>:<port>/api`). `STATIC_BASE_URL` stays `http://localhost:3004` because clients open those URLs from the host.
+- Healthchecks: app containers `fetch` their own `/spec` (no `${}` in compose strings — compose would interpolate it); the gateway waits for the 4 services to be healthy. Host ports 3001–3005, 8025, 15672; DB ports are not published. Running it next to the dev infra containers clashes on 8025/15672.
+- `project/.dockerignore` keeps the build context to sources (~1.4 MB): no `node_modules`, `dist`, generated Prisma clients, `.env` or `apps/*/postgres` data. `project/.gitattributes` forces LF for `*.sh` and `.env.example` so a Windows checkout does not break `sh` or env values.
+- Verified: build ~2 min, cold `up --wait` ~20 s with the image cached, spec checks 232/232 and all smoke files pass against it; `down` + `up` keeps data, `down -v` + `up` reseeds.
+
 ## Local Infra
 - Users: `docker compose -f apps/users/compose.yaml up -d` → DB `localhost:5434` `readme-users` (admin/test), pgAdmin `http://localhost:8083`. Needs notify's RabbitMQ running to publish `user.registered`.
 - Launch instructions for the whole project live in the root `specification.md`.
