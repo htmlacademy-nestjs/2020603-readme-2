@@ -15,6 +15,9 @@
 @host = http://localhost:3002/api
 @userId = 2f4b7d3a-3c1b-4c4d-8b6a-8ef7b92f1011
 @otherUserId = 9c8e7b6a-5f4d-43c2-9a1b-0e9d8c7b6a52
+# На этого пользователя userId в демо-данных не подписан: подписка создаётся (201)
+# и удаляется самим файлом, демо-подписки userId → otherUserId остаются нетронутыми.
+@notFollowedUserId = a1d2c3b4-5e6f-47a8-9b0c-1d2e3f4a5b6c
 
 ############################################################
 # POSTS — CRUD
@@ -110,14 +113,14 @@ GET {{host}}/subscriptions
 X-User-Id: {{userId}}
 
 ### CREATE: подписаться на другого пользователя
-POST {{host}}/subscriptions/{{otherUserId}}
+POST {{host}}/subscriptions/{{notFollowedUserId}}
 X-User-Id: {{userId}}
 
 ### READ: количество подписчиков пользователя (публично)
-GET {{host}}/subscriptions/followers/{{otherUserId}}/count
+GET {{host}}/subscriptions/followers/{{notFollowedUserId}}/count
 
 ### DELETE: отписаться
-DELETE {{host}}/subscriptions/{{otherUserId}}
+DELETE {{host}}/subscriptions/{{notFollowedUserId}}
 X-User-Id: {{userId}}
 
 ############################################################

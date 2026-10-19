@@ -174,7 +174,7 @@ Content-Type: application/json
 
 {
   "title": "Как выучить TypeScript за двадцать минут",
-  "videoUrl": "https://www.youtube.com/watch?v=abc123def",
+  "videoUrl": "https://youtu.be/dQw4w9WgXcQ?t=42",
   "tags": ["typescript", "video"]
 }
 

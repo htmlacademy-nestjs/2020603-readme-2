@@ -32,20 +32,20 @@ describe('NotifyPostService', () => {
     const entity = { ...dto, id: 'row-id' } as unknown as NotifyPostEntity;
     repository.upsert.mockResolvedValue(entity);
 
-    await expect(service.addPost(dto)).resolves.toBe(entity);
+    await expect(service.add(dto)).resolves.toBe(entity);
     expect(repository.upsert).toHaveBeenCalledWith(dto);
   });
 
   it('removes an unpublished post from the pending queue only', async () => {
     repository.deletePending.mockResolvedValue(1);
 
-    await expect(service.removePendingPost(POST_ID)).resolves.toBeUndefined();
+    await expect(service.removePending(POST_ID)).resolves.toBeUndefined();
     expect(repository.deletePending).toHaveBeenCalledWith(POST_ID);
   });
 
   it('is a no-op when the post is not pending', async () => {
     repository.deletePending.mockResolvedValue(0);
 
-    await expect(service.removePendingPost(POST_ID)).resolves.toBeUndefined();
+    await expect(service.removePending(POST_ID)).resolves.toBeUndefined();
   });
 });

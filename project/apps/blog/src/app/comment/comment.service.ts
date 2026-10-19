@@ -3,8 +3,7 @@ import { Comment } from '@project/shared-types';
 import type { PaginationResult } from '@project/shared-types';
 import { CommentRepository } from './comment.repository';
 import { PostService } from '../post/post.service';
-import type { CreateCommentDto } from './dto/create-comment.dto';
-import type { GetCommentQueryDto } from './dto/get-comment-query.dto';
+import type { CreateCommentDto, GetCommentQueryDto } from '@project/shared-dto';
 import {
   CommentDeleteForbiddenError,
   CommentNotFoundError,
@@ -17,14 +16,14 @@ export class CommentService {
     private readonly postService: PostService,
   ) {}
 
-  public async createComment(
+  public async create(
     postId: string,
     dto: CreateCommentDto,
     authorId: string,
   ): Promise<Comment> {
     // §6.5: комментируем только опубликованную публикацию. Заодно превращаем
     // отсутствие поста в 404 вместо ошибки внешнего ключа Prisma.
-    await this.postService.findPublishedPost(postId);
+    await this.postService.getPublishedById(postId);
 
     const comment = new Comment();
     comment.id = '';
@@ -36,19 +35,33 @@ export class CommentService {
     return this.commentRepository.save(comment);
   }
 
-  public async getComments(
+  public async findByPostId(
     postId: string,
     query: GetCommentQueryDto,
   ): Promise<PaginationResult<Comment>> {
-    await this.postService.findPublishedPost(postId);
+    await this.postService.getPublishedById(postId);
     return this.commentRepository.findByPostId(postId, query);
   }
 
-  /** §6.4: удалить можно только свой комментарий. */
-  public async deleteComment(id: string, authorId: string): Promise<void> {
+  /**
+   * §6.4: удалить можно только свой комментарий. Как и остальные операции
+   * с комментариями, сначала проверяется публикация: у удалённой публикации
+   * комментариев больше нет (§2.3).
+   */
+  public async remove(
+    postId: string,
+    id: string,
+    authorId: string,
+  ): Promise<void> {
+    await this.postService.getPublishedById(postId);
+
     const comment = await this.commentRepository.findById(id);
-    if (!comment) throw new CommentNotFoundError(id);
-    if (comment.authorId !== authorId) throw new CommentDeleteForbiddenError();
+    if (!comment || comment.postId !== postId) {
+      throw new CommentNotFoundError(id);
+    }
+    if (comment.authorId !== authorId) {
+      throw new CommentDeleteForbiddenError();
+    }
     await this.commentRepository.softDeleteById(id);
   }
 }

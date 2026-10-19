@@ -22,8 +22,8 @@ model NotifyPost {
   postId      String    @unique @map("post_id") @db.Uuid
   title       String?   @db.VarChar(50)
   type        String    @db.VarChar(20)
-  // Кросс-сервисная ссылка на пользователя — храним как opaque String без @db.Uuid
-  // (blog присылает STUB_USER_ID, реальный auth ещё не подключён).
+  // Кросс-сервисная ссылка на пользователя — храним как opaque String без @db.Uuid,
+  // как и все межсервисные идентификаторы проекта.
   authorId    String    @map("author_id")
   publishedAt DateTime  @map("published_at")
   createdAt   DateTime  @default(now()) @map("created_at")

@@ -1,10 +1,7 @@
 import {
   Controller,
-  FileTypeValidator,
   Get,
-  MaxFileSizeValidator,
   Param,
-  ParseFilePipe,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -21,18 +18,14 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
-import { fillRdo } from '@project/shared-helpers';
+import { MaxFileSize } from '@project/shared-types';
+import { createImageFilePipe, fillRdo } from '@project/shared-helpers';
 import { FileService } from './file.service.js';
 import { FileRdo } from './rdo/file.rdo.js';
 import { FileIdParamDto } from './dto/file-id-param.dto.js';
-import {
-  AVATAR_MAX_FILE_SIZE,
-  IMAGE_MIME_TYPE_PATTERN,
-  PHOTO_MAX_FILE_SIZE,
-  FileKind,
-} from './file.constant.js';
+import { FileKind } from './file.constant.js';
 
-const multipartBodySchema = {
+const MULTIPART_BODY_SCHEMA = {
   schema: {
     type: 'object',
     required: ['file'],
@@ -51,24 +44,17 @@ export class FileController {
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Загрузить аватар (jpeg/png, до 500 КБ)' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody(multipartBodySchema)
+  @ApiBody(MULTIPART_BODY_SCHEMA)
   @ApiCreatedResponse({
     description: 'Аватар успешно загружен',
     type: FileRdo,
   })
   @ApiBadRequestResponse({ description: 'Невалидный файл (формат или размер)' })
   public async uploadAvatar(
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: AVATAR_MAX_FILE_SIZE }),
-          new FileTypeValidator({ fileType: IMAGE_MIME_TYPE_PATTERN }),
-        ],
-      }),
-    )
+    @UploadedFile(createImageFilePipe({ maxSize: MaxFileSize.Avatar }))
     file: Express.Multer.File,
   ): Promise<FileRdo> {
-    const stored = await this.fileService.saveFile(file, FileKind.Avatar);
+    const stored = await this.fileService.save(file, FileKind.Avatar);
     return fillRdo(FileRdo, stored);
   }
 
@@ -76,24 +62,17 @@ export class FileController {
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Загрузить фото-публикацию (jpeg/png, до 1 МБ)' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody(multipartBodySchema)
+  @ApiBody(MULTIPART_BODY_SCHEMA)
   @ApiCreatedResponse({
     description: 'Фото успешно загружено',
     type: FileRdo,
   })
   @ApiBadRequestResponse({ description: 'Невалидный файл (формат или размер)' })
   public async uploadPhoto(
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: PHOTO_MAX_FILE_SIZE }),
-          new FileTypeValidator({ fileType: IMAGE_MIME_TYPE_PATTERN }),
-        ],
-      }),
-    )
+    @UploadedFile(createImageFilePipe({ maxSize: MaxFileSize.Photo }))
     file: Express.Multer.File,
   ): Promise<FileRdo> {
-    const stored = await this.fileService.saveFile(file, FileKind.Photo);
+    const stored = await this.fileService.save(file, FileKind.Photo);
     return fillRdo(FileRdo, stored);
   }
 
@@ -109,7 +88,7 @@ export class FileController {
   @ApiBadRequestResponse({ description: 'Невалидный идентификатор файла' })
   @ApiNotFoundResponse({ description: 'Файл не найден' })
   public async show(@Param() params: FileIdParamDto): Promise<FileRdo> {
-    const stored = await this.fileService.getFile(params.fileId);
+    const stored = await this.fileService.getById(params.fileId);
     return fillRdo(FileRdo, stored);
   }
 }

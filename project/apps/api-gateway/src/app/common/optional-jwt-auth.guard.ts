@@ -1,9 +1,15 @@
-import { CanActivate, ExecutionContext, Inject, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import type { TokenPayload } from '@project/shared-types';
 import { jwtConfig } from '../config';
+import { extractBearerToken } from './extract-bearer-token';
 
 /**
  * Необязательная авторизация: маршрут остаётся публичным, но при валидном
@@ -22,9 +28,9 @@ export class OptionalJwtAuthGuard implements CanActivate {
     const request = context
       .switchToHttp()
       .getRequest<Request & { user?: TokenPayload }>();
-    const [type, token] = (request.headers.authorization ?? '').split(' ');
+    const token = extractBearerToken(request);
 
-    if (type !== 'Bearer' || !token) {
+    if (!token) {
       return true;
     }
 

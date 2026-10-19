@@ -30,12 +30,10 @@ export class AxiosExceptionFilter implements ExceptionFilter {
     this.logger.error(
       `Downstream ${request.method} ${request.url} unreachable: ${error.message}`,
     );
-    response
-      .status(HttpStatus.SERVICE_UNAVAILABLE)
-      .json({
-        statusCode: HttpStatus.SERVICE_UNAVAILABLE,
-        message: 'Сервис временно недоступен',
-        error: 'Service Unavailable',
-      });
+    response.status(HttpStatus.SERVICE_UNAVAILABLE).json({
+      statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+      message: 'Сервис временно недоступен',
+      error: 'Service Unavailable',
+    });
   }
 }

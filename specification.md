@@ -294,7 +294,50 @@
 
 # Запуск проекта
 
-## Требования
+## Быстрый запуск в Docker (рекомендуется)
+
+Нужен только Docker с Compose v2 (Docker Desktop или Docker Engine). Node.js, npm, PostgreSQL и RabbitMQ на компьютере не нужны.
+
+```bash
+git clone -b module8-task1 https://github.com/omak-oorzhak/2020603-readme-2.git
+cd 2020603-readme-2/project
+docker compose up -d --build --wait
+```
+
+Что делает последняя команда:
+
+1. Собирает образ приложения (`project/Dockerfile`) на Node.js 24 LTS: ставит зависимости строго по `package-lock.json`, генерирует клиенты Prisma и собирает все пять сервисов.
+2. Поднимает четыре PostgreSQL, RabbitMQ и Mailpit (`project/compose.yaml`).
+3. Перед стартом каждого сервиса применяет миграции, а при первом запуске загружает демо-данные.
+4. Завершается, когда все сервисы отвечают (`--wait`).
+
+Первый запуск занимает несколько минут: скачиваются образы и зависимости. Повторные запуски занимают секунды. Файлы `.env` создавать не нужно: настройки берутся из `apps/<app>/.env.example`, а адреса соседних контейнеров переопределены в `compose.yaml`.
+
+| Что | Адрес |
+|---|---|
+| API Gateway — точка входа | http://localhost:3005/api |
+| Документация OpenAPI шлюза | http://localhost:3005/spec |
+| Документация отдельных сервисов | http://localhost:3001/spec … http://localhost:3004/spec |
+| Письма рассылки (Mailpit) | http://localhost:8025 |
+| RabbitMQ | http://localhost:15672 (`admin` / `test`) |
+
+Демо-пользователи: `ivan@example.com`, `maria@example.com`, `pavel@example.com`, пароль `secret123`. В Swagger шлюза токен из ответа `POST /api/auth/login` вставляется кнопкой «Authorize».
+
+Управление стендом (из `project/`):
+
+```bash
+docker compose logs -f api-gateway   # логи сервиса
+docker compose down                  # остановить, данные сохраняются
+docker compose down -v               # остановить и удалить данные: следующий запуск снова загрузит демо-данные
+```
+
+После изменения кода стенд пересобирается той же командой `docker compose up -d --build --wait`. Порты 3001–3005, 8025 и 15672 должны быть свободны. Базы данных наружу не публикуются, поэтому установленный локально PostgreSQL не мешает. Если запущены контейнеры для разработки из `apps/<app>/compose.yaml` (см. ниже), остановите их: Mailpit и RabbitMQ займут те же порты.
+
+## Локальный запуск для разработки
+
+Этот вариант нужен, чтобы запускать сервисы из исходников через `nx serve`. Docker здесь поднимает только инфраструктуру.
+
+### Требования
 
 - **Node.js 20+** (актуальный LTS) и npm.
 - **Docker** с плагином Compose — поднимает PostgreSQL, RabbitMQ, Mailpit и pgAdmin.
@@ -306,7 +349,7 @@ cd project
 npm install
 ```
 
-## Состав приложения
+### Состав приложения
 
 | Сервис | Назначение | Порт приложения | Swagger | Хранилище |
 |---|---|---|---|---|
@@ -318,7 +361,7 @@ npm install
 
 Вспомогательные интерфейсы: RabbitMQ UI http://localhost:15672, Mailpit UI http://localhost:8025, pgAdmin — `8082` (blog), `8083` (users), `8084` (notify), `8085` (file-storage). Логин/пароль везде `admin` / `test`, у pgAdmin — `admin@readme.com` / `test`.
 
-## Шаг 1. Переменные окружения
+### Шаг 1. Переменные окружения
 
 Файлы `.env` не хранятся в репозитории. Для каждого сервиса скопируйте образец:
 
@@ -331,7 +374,7 @@ for app in users blog notify file-storage api-gateway; do cp "apps/$app/.env.exa
 - `JWT_ACCESS_TOKEN_SECRET` в `apps/api-gateway/.env` и `apps/users/.env` должен совпадать байт в байт — шлюз проверяет токен локально.
 - `RABBITMQ_QUEUE` одинаков у `users`, `blog` и `notify`: первые два публикуют события в очередь, которую слушает `notify`.
 
-## Шаг 2. Инфраструктура
+### Шаг 2. Инфраструктура
 
 ```bash
 docker compose -f apps/users/compose.yaml up -d
@@ -340,7 +383,7 @@ docker compose -f apps/notify/compose.yaml up -d
 docker compose -f apps/file-storage/compose.yaml up -d
 ```
 
-## Шаг 3. Схемы баз данных и демо-данные
+### Шаг 3. Схемы баз данных и демо-данные
 
 Сначала генерируются клиенты Prisma. Шаг обязателен: сгенерированный код не хранится в репозитории, а команда миграции его не создаёт. Без него сборка падает с ошибкой `Can't resolve '../../generated/prisma/client'`. База данных на этом шаге не нужна.
 
@@ -368,7 +411,7 @@ npx nx db-fill blog
 npx nx db-fill notify
 ```
 
-## Шаг 4. Запуск сервисов
+### Шаг 4. Запуск сервисов
 
 Каждая команда запускается в отдельном терминале. `api-gateway` поднимается последним — он обращается к остальным четырём.
 

@@ -7,13 +7,8 @@ import dayjs from 'dayjs';
 import type { StoredFile } from '@project/shared-types';
 import { FileRepository } from './file.repository';
 import { storageConfig } from '../config';
-import {
-  DATE_FOLDER_FORMAT,
-  IMAGE_FILE_EXTENSIONS,
-  JPEG_SIGNATURE,
-  PNG_SIGNATURE,
-  FileKind,
-} from './file.constant';
+import { DATE_FOLDER_FORMAT, FileKind, IMAGE_FORMATS } from './file.constant';
+import type { ImageFormat } from './file.constant';
 import { FileNotFoundError, UnsupportedImageTypeError } from './file.errors';
 
 type StoredFileWithUrl = StoredFile & { url: string };
@@ -26,21 +21,24 @@ export class FileService {
     private readonly storage: ConfigType<typeof storageConfig>,
   ) {}
 
-  public async saveFile(
+  public async save(
     file: Express.Multer.File,
     kind: FileKind,
   ): Promise<StoredFileWithUrl> {
     // Тип определяем по магическим байтам буфера, а не по file.mimetype:
     // клиент может соврать в обе стороны.
-    const mimetype = this.detectMimetype(file.buffer);
+    const { mimetype, extension } = this.detectImageFormat(file.buffer);
 
     // posix-значение для БД и URL — только `/` в шаблонной строке.
     const subDirectory = `${kind}/${dayjs().format(DATE_FOLDER_FORMAT)}`;
-    const extension = IMAGE_FILE_EXTENSIONS[mimetype];
     const hashName = `${randomUUID()}.${extension}`;
 
     // Физический путь — через path.join (корректно для платформы).
-    const targetPath = join(this.storage.uploadDirectory, subDirectory, hashName);
+    const targetPath = join(
+      this.storage.uploadDirectory,
+      subDirectory,
+      hashName,
+    );
     await mkdir(dirname(targetPath), { recursive: true });
     await writeFile(targetPath, file.buffer);
 
@@ -52,34 +50,45 @@ export class FileService {
         mimetype,
         size: file.size,
       });
-      return this.withUrl(stored);
+      return this.addUrl(stored);
     } catch (error) {
       // БД упала — удаляем осиротевший файл (best-effort).
-      await unlink(targetPath).catch(() => undefined);
+      await this.removeOrphanFile(targetPath);
       throw error;
     }
   }
 
-  public async getFile(id: string): Promise<StoredFileWithUrl> {
+  public async getById(id: string): Promise<StoredFileWithUrl> {
     const file = await this.repository.findById(id);
     if (!file) {
       throw new FileNotFoundError(id);
     }
-    return this.withUrl(file);
+    return this.addUrl(file);
   }
 
-  private withUrl(file: StoredFile): StoredFileWithUrl {
+  private addUrl(file: StoredFile): StoredFileWithUrl {
     // URL строит сервис; контроллер — тонкий.
-    return { ...file, url: `${this.storage.baseUrl}${this.storage.serveRoot}/${file.path}` };
+    return {
+      ...file,
+      url: `${this.storage.baseUrl}${this.storage.serveRoot}/${file.path}`,
+    };
   }
 
-  private detectMimetype(buffer: Buffer): string {
-    if (buffer.subarray(0, JPEG_SIGNATURE.length).equals(JPEG_SIGNATURE)) {
-      return 'image/jpeg';
+  private detectImageFormat(buffer: Buffer): ImageFormat {
+    const format = IMAGE_FORMATS.find(({ signature }) =>
+      buffer.subarray(0, signature.length).equals(signature),
+    );
+    if (!format) {
+      throw new UnsupportedImageTypeError();
     }
-    if (buffer.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
-      return 'image/png';
+    return format;
+  }
+
+  private async removeOrphanFile(filePath: string): Promise<void> {
+    try {
+      await unlink(filePath);
+    } catch {
+      // Файла уже может не быть — наружу всё равно уходит исходная ошибка БД.
     }
-    throw new UnsupportedImageTypeError();
   }
 }

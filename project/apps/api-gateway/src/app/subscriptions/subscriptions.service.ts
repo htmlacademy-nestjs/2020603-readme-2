@@ -1,14 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import {
-  fillRdo,
-  fillRdoList,
-} from '@project/shared-helpers';
-import { BlogClient, type BlogSubscription } from '../clients/blog.client';
-import { UsersClient, type UserInfo } from '../clients/users.client';
+import { fillRdo, fillRdoList } from '@project/shared-helpers';
+import { BlogClient } from '../clients/blog.client';
+import { UsersClient } from '../clients/users.client';
 import { SubscriptionParamDto } from './dto/subscription-param.dto';
 import { SubscriptionWithUserRdo } from './rdo/subscription-with-user.rdo';
-
-type EnrichedSubscription = BlogSubscription & { user: UserInfo | null };
 
 @Injectable()
 export class SubscriptionsService {
@@ -17,37 +12,34 @@ export class SubscriptionsService {
     private readonly usersClient: UsersClient,
   ) {}
 
-  public async findSubscriptions(
+  public async findByFollower(
     userId: string,
   ): Promise<SubscriptionWithUserRdo[]> {
     const subscriptions = await this.blogClient.getSubscriptions(userId);
-    if (subscriptions.length === 0) {
-      return [];
-    }
-    const userIds = subscriptions.map((s) => s.followingId);
-    const userMap = await this.usersClient.getUserInfoMap(userIds);
-    const enriched: EnrichedSubscription[] = subscriptions.map((s) => ({
-      ...s,
-      user: userMap.get(s.followingId) ?? null,
+    const users = await this.usersClient.getInfoMap(
+      subscriptions.map((subscription) => subscription.followingId),
+    );
+    const enrichedSubscriptions = subscriptions.map((subscription) => ({
+      ...subscription,
+      user: users.get(subscription.followingId) ?? null,
     }));
-    return fillRdoList(SubscriptionWithUserRdo, enriched);
+    return fillRdoList(SubscriptionWithUserRdo, enrichedSubscriptions);
   }
 
+  /**
+   * §4.5: подписка оформляется по идентификатору существующего пользователя.
+   * Несуществующий пользователь — 404 от users, подписка не создаётся.
+   */
   public async subscribe(
     userId: string,
     params: SubscriptionParamDto,
   ): Promise<SubscriptionWithUserRdo> {
+    const user = await this.usersClient.getById(params.followingId);
     const subscription = await this.blogClient.subscribe(
       userId,
       params.followingId,
     );
-    const userMap = await this.usersClient.getUserInfoMap([
-      subscription.followingId,
-    ]);
-    return fillRdo(SubscriptionWithUserRdo, {
-      ...subscription,
-      user: userMap.get(subscription.followingId) ?? null,
-    } satisfies EnrichedSubscription);
+    return fillRdo(SubscriptionWithUserRdo, { ...subscription, user });
   }
 
   public async unsubscribe(

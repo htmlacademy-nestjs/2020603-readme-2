@@ -17,7 +17,10 @@ function buildUser(): User {
 describe('UserService', () => {
   let service: UserService;
   let repository: jest.Mocked<
-    Pick<UserRepository, 'findById' | 'findByEmail' | 'create' | 'updatePasswordHash'>
+    Pick<
+      UserRepository,
+      'findById' | 'findByEmail' | 'create' | 'updatePasswordHash'
+    >
   >;
 
   beforeEach(() => {

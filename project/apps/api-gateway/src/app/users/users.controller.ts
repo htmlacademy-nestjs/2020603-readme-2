@@ -8,7 +8,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import { UserIdParamDto } from './dto/user-id-param.dto';
+import { UserIdParamDto } from '@project/shared-dto';
 import { UserDetailsRdo } from './rdo/user-details.rdo';
 
 @ApiTags('users')
@@ -17,7 +17,9 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get(':id')
-  @ApiOperation({ summary: 'Получить профиль пользователя с агрегированными счётчиками' })
+  @ApiOperation({
+    summary: 'Получить профиль пользователя с агрегированными счётчиками',
+  })
   @ApiParam({
     name: 'id',
     description: 'Идентификатор пользователя',
@@ -25,9 +27,11 @@ export class UsersController {
     format: 'uuid',
   })
   @ApiOkResponse({ description: 'Профиль пользователя', type: UserDetailsRdo })
-  @ApiBadRequestResponse({ description: 'Невалидный идентификатор пользователя' })
+  @ApiBadRequestResponse({
+    description: 'Невалидный идентификатор пользователя',
+  })
   @ApiNotFoundResponse({ description: 'Пользователь не найден' })
   public async show(@Param() params: UserIdParamDto): Promise<UserDetailsRdo> {
-    return this.usersService.getUserDetails(params.id);
+    return this.usersService.getDetails(params.id);
   }
 }

@@ -7,16 +7,14 @@ import type { NotifyPostEntity } from './notify-post.entity';
 export class NotifyPostRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  public async upsert(
-    dto: PostPublishedDto,
-  ): Promise<NotifyPostEntity> {
+  public async upsert(dto: PostPublishedDto): Promise<NotifyPostEntity> {
     const data = {
       postId: dto.postId,
       title: dto.title ?? null,
       type: dto.type,
       authorId: dto.authorId,
-      // Событие приходит JSON-ом (publishedAt — ISO-строка); приводим к Date.
-      publishedAt: new Date(dto.publishedAt),
+      // ISO-строку из JSON события ValidationPipe уже привёл к Date (@Type).
+      publishedAt: dto.publishedAt,
     };
 
     return this.prisma.notifyPost.upsert({

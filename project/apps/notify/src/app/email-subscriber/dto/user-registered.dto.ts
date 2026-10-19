@@ -1,4 +1,11 @@
-import { IsEmail, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { UserValidation } from '@project/shared-types';
 import type { UserRegisteredEvent } from '@project/shared-types';
 
 /**
@@ -13,7 +20,7 @@ export class UserRegisteredDto implements UserRegisteredEvent {
   public email!: string;
 
   @IsString()
-  @MinLength(3)
-  @MaxLength(50)
+  @MinLength(UserValidation.Name.MinLength)
+  @MaxLength(UserValidation.Name.MaxLength)
   public name!: string;
 }

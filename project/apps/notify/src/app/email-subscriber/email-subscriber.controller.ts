@@ -15,6 +15,6 @@ export class EmailSubscriberController {
   public async handleUserRegistered(
     @Payload() dto: UserRegisteredDto,
   ): Promise<void> {
-    await this.emailSubscriberService.addSubscriber(dto);
+    await this.emailSubscriberService.add(dto);
   }
 }

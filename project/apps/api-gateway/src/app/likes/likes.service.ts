@@ -7,12 +7,12 @@ import { LikeRdo } from './rdo/like.rdo';
 export class LikesService {
   constructor(private readonly blogClient: BlogClient) {}
 
-  public async addLike(userId: string, postId: string) {
+  public async add(userId: string, postId: string) {
     const like = await this.blogClient.addLike(userId, postId);
     return fillRdo(LikeRdo, like);
   }
 
-  public async removeLike(userId: string, postId: string): Promise<void> {
+  public async remove(userId: string, postId: string): Promise<void> {
     await this.blogClient.removeLike(userId, postId);
   }
 }

@@ -22,10 +22,6 @@ export class UserRepository {
     user.passwordHash = record.passwordHash;
     user.avatarUrl = record.avatarUrl ?? undefined;
     user.createdAt = record.createdAt;
-    // Счётчики формируются здесь. Пока заглушки —
-    // позже будут реальные агрегаты (подсчёт подписок/постов).
-    user.postsCount = 0;
-    user.subscribersCount = 0;
     return user;
   }
 
@@ -58,9 +54,5 @@ export class UserRepository {
     }
 
     return this.findById(id);
-  }
-
-  public async deleteById(id: string): Promise<void> {
-    await this.prisma.user.deleteMany({ where: { id } });
   }
 }

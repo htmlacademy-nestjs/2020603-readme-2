@@ -1,31 +1,18 @@
+import { BadRequestException, type ArgumentMetadata } from '@nestjs/common';
+import { createValidationPipe } from '@project/shared-config';
 import {
-  BadRequestException,
-  ValidationPipe,
-  type ArgumentMetadata,
-} from '@nestjs/common';
-import { ChangeUserPasswordDto } from './change-user-password.dto';
+  ChangeUserPasswordDto,
+  LoginUserDto,
+  UserIdParamDto,
+} from '@project/shared-dto';
 import { CreateUserDto } from './create-user.dto';
-import { LoginUserDto } from './login-user.dto';
-import { UserIdParamDto } from '../../user/dto/user-id-param.dto';
 
 type ValidationResponse = {
   message: string[];
 };
 
 describe('Authentication DTO validation', () => {
-  const validationPipe = new ValidationPipe({
-    transform: true,
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    stopAtFirstError: false,
-    transformOptions: {
-      enableImplicitConversion: true,
-    },
-    validationError: {
-      target: false,
-      value: false,
-    },
-  });
+  const validationPipe = createValidationPipe();
 
   async function transformDto<T extends object>(
     metatype: new () => T,

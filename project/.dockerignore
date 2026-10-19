@@ -1,0 +1,15 @@
+# Контекст сборки образа — только исходники: без локальных зависимостей,
+# сборок, сгенерированного кода, .env и данных контейнеров разработки.
+**/node_modules
+**/dist
+**/out-tsc
+**/coverage
+**/*.tsbuildinfo
+**/.env
+apps/*/src/generated
+apps/*/postgres
+apps/*/rabbitmq
+apps/*/mongodb
+apps/file-storage/uploads
+.nx
+.idea

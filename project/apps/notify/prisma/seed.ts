@@ -1,21 +1,16 @@
 import path from 'node:path';
 import { config as loadEnv } from 'dotenv';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { postgresConfig } from '@project/shared-config';
+import { getPostgresConnectionString } from '@project/shared-helpers';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 
 loadEnv({ path: path.join(import.meta.dirname, '..', '.env') });
 
-const {
-  POSTGRES_USER,
-  POSTGRES_PASSWORD,
-  POSTGRES_HOST,
-  POSTGRES_PORT,
-  POSTGRES_DB,
-} = process.env;
-
-const connectionString = `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}`;
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString }),
+  adapter: new PrismaPg({
+    connectionString: getPostgresConnectionString(postgresConfig()),
+  }),
 });
 
 async function clean(): Promise<void> {
@@ -51,11 +46,17 @@ async function main(): Promise<void> {
   console.log('Notify seed complete:', { subscribers: 3 });
 }
 
-main()
-  .catch((error) => {
+// tsx исполняет сид как CommonJS (в apps/<app>/package.json нет "type": "module"),
+// поэтому await верхнего уровня недоступен — запуск идёт через функцию.
+async function run(): Promise<void> {
+  try {
+    await main();
+  } catch (error) {
     console.error(error);
-    process.exit(1);
-  })
-  .finally(async () => {
+    process.exitCode = 1;
+  } finally {
     await prisma.$disconnect();
-  });
+  }
+}
+
+void run();

@@ -7,9 +7,7 @@ import type { EmailSubscriberEntity } from './email-subscriber.entity';
 export class EmailSubscriberRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  public async upsert(
-    dto: UserRegisteredDto,
-  ): Promise<EmailSubscriberEntity> {
+  public async upsert(dto: UserRegisteredDto): Promise<EmailSubscriberEntity> {
     return this.prisma.emailSubscriber.upsert({
       where: { userId: dto.userId },
       update: { email: dto.email, name: dto.name },

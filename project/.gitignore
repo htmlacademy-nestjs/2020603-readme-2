@@ -44,3 +44,31 @@ Thumbs.db
 .claude/settings.local.json
 
 test-output
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Перенесено из корневого .gitignore: корневой файл не меняем (см. Readme.md)
+.idea/
+.qwen/
+.junie/
+.nx/
+.env
+
+# MongoDB data directories (docker volumes from compose.yaml)
+**/mongodb/
+
+# PostgreSQL data directories (docker volumes from compose.yaml)
+**/postgres/
+
+# RabbitMQ data directories (docker volumes from compose.yaml)
+**/rabbitmq/
+
+# Prisma generated clients
+apps/blog/src/generated/
+apps/users/src/generated/
+apps/notify/src/generated/
+apps/file-storage/src/generated/
+
+# file-storage uploads (docker volume target / runtime artifacts)
+apps/file-storage/uploads/

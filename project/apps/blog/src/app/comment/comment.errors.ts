@@ -1,7 +1,4 @@
-import {
-  EntityNotFoundError,
-  AccessDeniedError,
-} from '@project/shared-errors';
+import { EntityNotFoundError, AccessDeniedError } from '@project/shared-errors';
 
 export class CommentNotFoundError extends EntityNotFoundError {
   constructor(commentId: string) {

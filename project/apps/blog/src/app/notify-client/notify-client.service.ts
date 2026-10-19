@@ -16,9 +16,7 @@ import { NOTIFY_CLIENT } from './notify-client.constant';
  */
 @Injectable()
 export class NotifyClientService {
-  constructor(
-    @Inject(NOTIFY_CLIENT) private readonly client: ClientProxy,
-  ) {}
+  constructor(@Inject(NOTIFY_CLIENT) private readonly client: ClientProxy) {}
 
   /** Пост опубликован или изменился, оставаясь опубликованным. */
   public publishPostPublished(post: Post): void {

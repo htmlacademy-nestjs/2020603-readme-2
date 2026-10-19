@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 export class FollowersCountParamDto {
   @ApiProperty({
@@ -7,6 +7,6 @@ export class FollowersCountParamDto {
     description: 'Идентификатор пользователя, чьих подписчиков считаем',
   })
   @IsString()
-  @MinLength(1)
+  @IsNotEmpty()
   public userId!: string;
 }

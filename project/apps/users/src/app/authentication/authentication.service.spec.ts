@@ -1,4 +1,3 @@
-
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@project/shared-types';
@@ -8,13 +7,19 @@ import { UserService } from '../user/user.service';
 import { UserAlreadyExistsError } from '../user/user.errors';
 import { NotifyClientService } from '../notify-client/notify-client.service';
 import { jwtConfig } from '../config';
-import { InvalidRefreshTokenError } from './authentication.errors';
+import {
+  InvalidCredentialsError,
+  InvalidRefreshTokenError,
+} from './authentication.errors';
 
 describe('AuthenticationService', () => {
   let service: AuthenticationService;
   let jwtService: Pick<JwtService, 'signAsync' | 'verifyAsync'>;
   let userServiceMock: jest.Mocked<
-    Pick<UserService, 'getById' | 'findByEmail' | 'create' | 'updatePasswordHash'>
+    Pick<
+      UserService,
+      'getById' | 'findByEmail' | 'create' | 'updatePasswordHash'
+    >
   >;
   let notifyClientMock: Pick<NotifyClientService, 'publishUserRegistered'>;
 
@@ -112,7 +117,9 @@ describe('AuthenticationService', () => {
         passwordHash: expect.not.stringContaining('secret123'),
       }),
     );
-    expect(notifyClientMock.publishUserRegistered).toHaveBeenCalledWith(created);
+    expect(notifyClientMock.publishUserRegistered).toHaveBeenCalledWith(
+      created,
+    );
   });
 
   it('should not publish an event when the email is taken', async () => {
@@ -129,6 +136,45 @@ describe('AuthenticationService', () => {
     ).rejects.toBeInstanceOf(UserAlreadyExistsError);
 
     expect(notifyClientMock.publishUserRegistered).not.toHaveBeenCalled();
+  });
+
+  it('should log in a user with a valid password and return tokens', async () => {
+    const passwordHasher = new PasswordHasher();
+    const user = Object.assign(new User(), {
+      id: '2f4b7d3a-3c1b-4c4d-8b6a-8ef7b92f1011',
+      email: 'user@example.com',
+      name: 'Иван Иванов',
+      passwordHash: await passwordHasher.hash('secret123'),
+    });
+    userServiceMock.findByEmail.mockResolvedValue(user);
+
+    await expect(
+      service.login({ email: user.email, password: 'secret123' }),
+    ).resolves.toEqual({
+      id: user.id,
+      email: user.email,
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    });
+  });
+
+  it('should reject an unknown email and a wrong password with the same error', async () => {
+    const user = Object.assign(new User(), {
+      id: '2f4b7d3a-3c1b-4c4d-8b6a-8ef7b92f1011',
+      email: 'user@example.com',
+      name: 'Иван Иванов',
+      passwordHash: await new PasswordHasher().hash('secret123'),
+    });
+    userServiceMock.findByEmail
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(user);
+
+    await expect(
+      service.login({ email: 'nobody@example.com', password: 'secret123' }),
+    ).rejects.toBeInstanceOf(InvalidCredentialsError);
+    await expect(
+      service.login({ email: user.email, password: 'wrong-pass' }),
+    ).rejects.toBeInstanceOf(InvalidCredentialsError);
   });
 
   describe('verifyRefreshToken', () => {
