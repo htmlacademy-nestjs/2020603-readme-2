@@ -1,29 +1,30 @@
 import path from 'node:path';
 import { config as loadEnv } from 'dotenv';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { postgresConfig } from '@project/shared-config';
+import { getPostgresConnectionString } from '@project/shared-helpers';
 import {
   PrismaClient,
   PostType,
   PostStatus,
 } from '../src/generated/prisma/client.js';
 
+// Opaque-id авторов из сервиса Users (без FK — правило проекта). Значения
+// совпадают с apps/users/prisma/seed.ts, поэтому API Gateway после сидов
+// обогащает публикации реальными карточками авторов, а не отдаёт author: null.
+const AUTHOR_1 = '2f4b7d3a-3c1b-4c4d-8b6a-8ef7b92f1011';
+const AUTHOR_2 = '9c8e7b6a-5f4d-43c2-9a1b-0e9d8c7b6a52';
+const AUTHOR_3 = 'a1d2c3b4-5e6f-47a8-9b0c-1d2e3f4a5b6c';
+
 // Prisma 7 НЕ читает .env сам — грузим .env сервиса Blog явно.
 loadEnv({ path: path.join(import.meta.dirname, '..', '.env') });
 
-const { POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB } =
-  process.env;
-
-const connectionString = `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}`;
-
 // Prisma 7: рантайм-клиент обязательно через driver adapter (@prisma/adapter-pg)
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString }),
+  adapter: new PrismaPg({
+    connectionString: getPostgresConnectionString(postgresConfig()),
+  }),
 });
-
-// Идентификаторы авторов имитируют opaque-id из сервиса Users (без FK — правило проекта).
-const AUTHOR_1 = '6571e8c9b4a1f2d3e4a5b6c7';
-const AUTHOR_2 = '6571e8c9b4a1f2d3e4a5b6c8';
-const AUTHOR_3 = '6571e8c9b4a1f2d3e4a5b6c9';
 
 async function clean(): Promise<void> {
   // Идемпотентность: чистим перед заполнением. Порядок учитывает связи,
@@ -78,8 +79,7 @@ async function main(): Promise<void> {
       type: PostType.quote,
       status: PostStatus.published,
       authorId: AUTHOR_3,
-      quoteText:
-        'Любая достаточно продвинутая технология неотличима от магии.',
+      quoteText: 'Любая достаточно продвинутая технология неотличима от магии.',
       quoteAuthor: 'Артур Кларк',
       tags: { connect: [{ id: prismaTag.id }] },
     },
@@ -108,9 +108,21 @@ async function main(): Promise<void> {
   // --- Комментарии (3) ---
   await prisma.comment.createMany({
     data: [
-      { postId: textPost.id, authorId: AUTHOR_2, text: 'Отличная статья, спасибо!' },
-      { postId: textPost.id, authorId: AUTHOR_3, text: 'Очень полезно, ждём продолжения.' },
-      { postId: videoPost.id, authorId: AUTHOR_1, text: 'Хороший разбор, всё по делу.' },
+      {
+        postId: textPost.id,
+        authorId: AUTHOR_2,
+        text: 'Отличная статья, спасибо!',
+      },
+      {
+        postId: textPost.id,
+        authorId: AUTHOR_3,
+        text: 'Очень полезно, ждём продолжения.',
+      },
+      {
+        postId: videoPost.id,
+        authorId: AUTHOR_1,
+        text: 'Хороший разбор, всё по делу.',
+      },
     ],
   });
 
@@ -141,10 +153,17 @@ async function main(): Promise<void> {
   });
 }
 
-main()
-  .then(() => prisma.$disconnect())
-  .catch(async (error) => {
+// tsx исполняет сид как CommonJS (в apps/<app>/package.json нет "type": "module"),
+// поэтому await верхнего уровня недоступен — запуск идёт через функцию.
+async function run(): Promise<void> {
+  try {
+    await main();
+  } catch (error) {
     console.error(error);
+    process.exitCode = 1;
+  } finally {
     await prisma.$disconnect();
-    process.exit(1);
-  });
+  }
+}
+
+void run();

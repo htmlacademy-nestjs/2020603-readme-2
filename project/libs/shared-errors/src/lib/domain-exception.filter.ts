@@ -5,6 +5,7 @@ import {
   ExceptionFilter,
   ForbiddenException,
   HttpException,
+  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -20,7 +21,7 @@ import {
 export class DomainExceptionFilter implements ExceptionFilter {
   catch(error: DomainError, host: ArgumentsHost) {
     const httpException = this.toHttpException(error);
-    // Перебрасываем как обычное HttpException — дальше отработает стандартный механизм Nest
+    // Ответ в формате стандартного HttpException Nest: статус и тело берём из него
     const response = host.switchToHttp().getResponse();
     response
       .status(httpException.getStatus())
@@ -28,15 +29,19 @@ export class DomainExceptionFilter implements ExceptionFilter {
   }
 
   private toHttpException(error: DomainError): HttpException {
-    if (error instanceof EntityNotFoundError)
+    if (error instanceof EntityNotFoundError) {
       return new NotFoundException(error.message);
-    if (error instanceof AccessDeniedError)
+    }
+    if (error instanceof AccessDeniedError) {
       return new ForbiddenException(error.message);
-    if (error instanceof BusinessRuleViolationError)
+    }
+    if (error instanceof BusinessRuleViolationError) {
       return new ConflictException(error.message);
-    if (error instanceof AuthenticationFailedError)
+    }
+    if (error instanceof AuthenticationFailedError) {
       return new UnauthorizedException(error.message);
-    // fallback — на всякий случай
-    return new HttpException(error.message, 500);
+    }
+    // Доменная ошибка без HTTP-соответствия — внутренняя ошибка сервера
+    return new InternalServerErrorException(error.message);
   }
 }

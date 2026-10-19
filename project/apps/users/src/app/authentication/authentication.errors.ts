@@ -1,23 +1,23 @@
-import {
-  EntityNotFoundError,
-  BusinessRuleViolationError,
-  AuthenticationFailedError,
-} from '@project/shared-errors';
-
-export class UserNotFoundError extends EntityNotFoundError {
-  constructor() {
-    super('Пользователь не найден');
-  }
-}
-
-export class UserAlreadyExistsError extends BusinessRuleViolationError {
-  constructor(email: string) {
-    super(`Пользователь с email "${email}" уже зарегистрирован`);
-  }
-}
+import { AuthenticationFailedError } from '@project/shared-errors';
 
 export class InvalidPasswordError extends AuthenticationFailedError {
   constructor() {
     super('Неверный пароль');
+  }
+}
+
+/**
+ * Вход с неизвестным email или неверным паролем. Причина намеренно одна:
+ * разные ответы позволили бы перебором узнать, какие адреса зарегистрированы.
+ */
+export class InvalidCredentialsError extends AuthenticationFailedError {
+  constructor() {
+    super('Неверный email или пароль');
+  }
+}
+
+export class InvalidRefreshTokenError extends AuthenticationFailedError {
+  constructor() {
+    super('Недействительный refresh-токен');
   }
 }

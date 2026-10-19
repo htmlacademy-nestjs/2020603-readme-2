@@ -7,7 +7,7 @@ import { FileService } from './file.service';
 import { FileRepository } from './file.repository';
 import { FileNotFoundError, UnsupportedImageTypeError } from './file.errors';
 import { storageConfig } from '../config';
-import { FileKind, JPEG_SIGNATURE } from './file.constant';
+import { FileKind, ImageSignature } from './file.constant';
 
 describe('FileService', () => {
   let service: FileService;
@@ -48,12 +48,12 @@ describe('FileService', () => {
     await rm(uploadDirectory, { recursive: true, force: true });
   });
 
-  describe('saveFile', () => {
+  describe('save', () => {
     it('writes bytes to <kind>/<YYYY/MM>/<uuid>.jpg, calls create with posix subDirectory and detected mimetype', async () => {
       // Буфер — валидный JPEG (магические байты ff d8 ff), но mimetype клиента соврёт: image/png.
       // Сервис должен сохранить продетектированный image/jpeg.
       const buffer = Buffer.concat([
-        JPEG_SIGNATURE,
+        ImageSignature.Jpeg,
         Buffer.from([0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]),
       ]);
       const file: Express.Multer.File = {
@@ -86,7 +86,7 @@ describe('FileService', () => {
         }),
       );
 
-      const result = await service.saveFile(file, FileKind.Avatar);
+      const result = await service.save(file, FileKind.Avatar);
 
       // create позвался с posix subDirectory (только `/`) и продетектированным mimetype.
       expect(repositoryMock.create).toHaveBeenCalledTimes(1);
@@ -113,7 +113,7 @@ describe('FileService', () => {
 
     it('deletes the orphan file and rethrows when repository.create fails', async () => {
       const buffer = Buffer.concat([
-        JPEG_SIGNATURE,
+        ImageSignature.Jpeg,
         Buffer.from([0xe1, 0x00, 0x10, 0x45, 0x78, 0x69, 0x66, 0x00]),
       ]);
       const file: Express.Multer.File = {
@@ -126,21 +126,19 @@ describe('FileService', () => {
       const dbError = new Error('DB is down');
       repositoryMock.create.mockRejectedValue(dbError);
 
-      await expect(service.saveFile(file, FileKind.Avatar)).rejects.toBe(
-        dbError,
-      );
+      await expect(service.save(file, FileKind.Avatar)).rejects.toBe(dbError);
 
       // Папка подпапки не должна содержать осиротевшего файла.
       const { readdir } = await import('node:fs/promises');
       const subDirectories = await readdir(uploadDirectory);
       // avatars/<YYYY>/<MM>/ — должны быть пустыми (файл удалён, папки могут остаться).
       const avatarsDir = join(uploadDirectory, 'avatars');
-      const avatarEntries = await readdir(avatarsDir, { recursive: true }).catch(
-        () => [],
-      );
-      expect(avatarEntries.every((entry) => !String(entry).endsWith('.jpg'))).toBe(
-        true,
-      );
+      const avatarEntries = await readdir(avatarsDir, {
+        recursive: true,
+      }).catch(() => []);
+      expect(
+        avatarEntries.every((entry) => !String(entry).endsWith('.jpg')),
+      ).toBe(true);
       expect(subDirectories).toContain('avatars');
     });
 
@@ -153,19 +151,19 @@ describe('FileService', () => {
         size: buffer.length,
       } as Express.Multer.File;
 
-      await expect(service.saveFile(file, FileKind.Photo)).rejects.toBeInstanceOf(
+      await expect(service.save(file, FileKind.Photo)).rejects.toBeInstanceOf(
         UnsupportedImageTypeError,
       );
       expect(repositoryMock.create).not.toHaveBeenCalled();
     });
   });
 
-  describe('getFile', () => {
+  describe('getById', () => {
     it('throws FileNotFoundError when repository returns null', async () => {
       repositoryMock.findById.mockResolvedValue(null);
 
       await expect(
-        service.getFile('2f4b7d3a-3c1b-4c4d-8b6a-8ef7b92f1011'),
+        service.getById('2f4b7d3a-3c1b-4c4d-8b6a-8ef7b92f1011'),
       ).rejects.toBeInstanceOf(FileNotFoundError);
 
       expect(repositoryMock.findById).toHaveBeenCalledWith(
@@ -185,7 +183,7 @@ describe('FileService', () => {
       });
       repositoryMock.findById.mockResolvedValue(record);
 
-      const result = await service.getFile(record.id);
+      const result = await service.getById(record.id);
 
       expect(result.url).toBe(
         'http://localhost:3004/static/photos/2026/01/uuid.png',

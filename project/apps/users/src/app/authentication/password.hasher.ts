@@ -9,7 +9,10 @@ export class PasswordHasher {
     return hash(password, salt);
   }
 
-  public async compare(password: string, passwordHash: string): Promise<boolean> {
+  public async compare(
+    password: string,
+    passwordHash: string,
+  ): Promise<boolean> {
     return compare(password, passwordHash);
   }
 }

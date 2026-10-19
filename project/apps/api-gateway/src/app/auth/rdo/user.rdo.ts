@@ -25,12 +25,4 @@ export class UserRdo {
   @ApiProperty({ description: 'Дата регистрации' })
   @Expose()
   public createdAt!: Date;
-
-  @ApiProperty({ description: 'Количество публикаций' })
-  @Expose()
-  public postsCount!: number;
-
-  @ApiProperty({ description: 'Количество подписчиков' })
-  @Expose()
-  public subscribersCount!: number;
 }

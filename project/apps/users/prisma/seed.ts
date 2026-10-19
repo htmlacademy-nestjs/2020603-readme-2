@@ -1,22 +1,20 @@
 import path from 'node:path';
 import { config as loadEnv } from 'dotenv';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { postgresConfig } from '@project/shared-config';
+import { getPostgresConnectionString } from '@project/shared-helpers';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { PasswordHasher } from '../src/app/authentication/password.hasher.js';
 
+// Пароль всех демо-пользователей (указан в specification.md).
+const DEMO_PASSWORD = 'secret123';
+
 loadEnv({ path: path.join(import.meta.dirname, '..', '.env') });
 
-const {
-  POSTGRES_USER,
-  POSTGRES_PASSWORD,
-  POSTGRES_HOST,
-  POSTGRES_PORT,
-  POSTGRES_DB,
-} = process.env;
-
-const connectionString = `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}`;
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString }),
+  adapter: new PrismaPg({
+    connectionString: getPostgresConnectionString(postgresConfig()),
+  }),
 });
 const passwordHasher = new PasswordHasher();
 
@@ -27,7 +25,7 @@ async function clean(): Promise<void> {
 async function main(): Promise<void> {
   await clean();
 
-  const passwordHash = await passwordHasher.hash('secret123');
+  const passwordHash = await passwordHasher.hash(DEMO_PASSWORD);
 
   await prisma.user.createMany({
     data: [
@@ -57,10 +55,17 @@ async function main(): Promise<void> {
   console.log('Users seed complete:', { users: 3 });
 }
 
-main()
-  .then(() => prisma.$disconnect())
-  .catch(async (error) => {
+// tsx исполняет сид как CommonJS (в apps/<app>/package.json нет "type": "module"),
+// поэтому await верхнего уровня недоступен — запуск идёт через функцию.
+async function run(): Promise<void> {
+  try {
+    await main();
+  } catch (error) {
     console.error(error);
+    process.exitCode = 1;
+  } finally {
     await prisma.$disconnect();
-    process.exit(1);
-  });
+  }
+}
+
+void run();

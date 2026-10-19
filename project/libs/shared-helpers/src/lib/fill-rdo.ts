@@ -12,9 +12,9 @@ export function fillRdo<T, V>(RdoClass: ClassConstructor<T>, source: V): T {
 /** Версия для массивов — для списочных эндпоинтов. */
 export function fillRdoList<T, V>(
   RdoClass: ClassConstructor<T>,
-  source: V[],
+  sources: V[],
 ): T[] {
-  return source.map((item) => fillRdo(RdoClass, item));
+  return sources.map((item) => fillRdo(RdoClass, item));
 }
 
 export function fillRdoPagination<T, V>(

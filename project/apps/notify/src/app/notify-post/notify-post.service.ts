@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { NotifyPostRepository } from './notify-post.repository';
-import type { CreatePostNotificationDto } from './dto/create-post-notification.dto';
+import type { PostPublishedDto } from './dto/post-published.dto';
 import type { NotifyPostEntity } from './notify-post.entity';
 
 @Injectable()
@@ -9,15 +9,24 @@ export class NotifyPostService {
 
   constructor(private readonly repository: NotifyPostRepository) {}
 
-  public async addPost(
-    dto: CreatePostNotificationDto,
-  ): Promise<NotifyPostEntity> {
+  public async add(dto: PostPublishedDto): Promise<NotifyPostEntity> {
     const post = await this.repository.upsert(dto);
     this.logger.log(`Post queued for newsletter: ${post.postId}`);
     return post;
   }
 
-  public async getPendingPosts(): Promise<NotifyPostEntity[]> {
+  /**
+   * Убирает пост из очереди рассылки. Уже разосланные записи не трогаем:
+   * письмо отправлено, а запись остаётся историей и защитой от повтора.
+   */
+  public async removePending(postId: string): Promise<void> {
+    const removed = await this.repository.deletePending(postId);
+    if (removed > 0) {
+      this.logger.log(`Post removed from newsletter queue: ${postId}`);
+    }
+  }
+
+  public async getPending(): Promise<NotifyPostEntity[]> {
     return this.repository.findPending();
   }
 

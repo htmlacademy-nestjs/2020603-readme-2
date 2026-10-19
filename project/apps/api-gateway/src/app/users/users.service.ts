@@ -4,6 +4,9 @@ import { UsersClient } from '../clients/users.client';
 import { BlogClient } from '../clients/blog.client';
 import { UserDetailsRdo } from './rdo/user-details.rdo';
 
+// Число публикаций берём из totalItems: одной записи на странице достаточно.
+const POSTS_COUNT_QUERY_LIMIT = 1;
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -11,10 +14,13 @@ export class UsersService {
     private readonly blogClient: BlogClient,
   ) {}
 
-  public async getUserDetails(id: string): Promise<UserDetailsRdo> {
+  public async getDetails(id: string): Promise<UserDetailsRdo> {
     const [user, postsPage, followers] = await Promise.all([
-      this.usersClient.getUser(id),
-      this.blogClient.getPosts({ authorId: id, limit: 1 }),
+      this.usersClient.getById(id),
+      this.blogClient.getPosts({
+        authorId: id,
+        limit: POSTS_COUNT_QUERY_LIMIT,
+      }),
       this.blogClient.getFollowersCount(id),
     ]);
 

@@ -17,7 +17,7 @@ export default defineConfig({
   schema: path.join(notifyRoot, 'prisma', 'schema.prisma'),
   migrations: {
     path: path.join(notifyRoot, 'prisma', 'migrations'),
-    seed: 'tsx apps/notify/prisma/seed.ts',
+    seed: 'tsx --tsconfig tsconfig.scripts.json apps/notify/prisma/seed.ts',
   },
   datasource: {
     url: `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}`,

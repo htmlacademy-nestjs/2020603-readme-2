@@ -2,8 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { appConfig } from '@project/shared-config';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { ClientsModule } from './clients/clients.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -33,7 +31,5 @@ import { jwtConfig, servicesConfig, validateEnv } from './config';
     SubscriptionsModule,
     NewslettersModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

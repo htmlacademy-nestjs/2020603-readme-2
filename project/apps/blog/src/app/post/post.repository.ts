@@ -1,17 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import {
   LinkPost,
+  Pagination,
   PhotoPost,
+  PostListLimit,
+  PostSortBy,
   PostStatus,
   PostType,
   QuotePost,
   TextPost,
   VideoPost,
 } from '@project/shared-types';
-import type { PaginationResult, Post } from '@project/shared-types';
+import type { PaginationResult, Post, PostQuery } from '@project/shared-types';
+import { createPaginationResult } from '@project/shared-helpers';
 import { PrismaService } from '../prisma/prisma.service';
-import { DEFAULT_LIMIT, SEARCH_LIMIT } from './post.constant';
-import type { PostQuery } from './post-query.type';
+import { NOT_DELETED } from '../prisma/soft-delete.constant';
 
 // Запись таблицы posts вместе со связями, нужными для маппинга в домен.
 type PostWithRelations = {
@@ -38,11 +41,24 @@ type PostWithRelations = {
 };
 
 type PostWhere = Record<string, unknown>;
-type PostOrderBy = Record<string, unknown>;
+type PostOrderBy = Record<string, unknown>[];
+
+// Окно страницы: номер, размер и сколько записей пропустить.
+interface PageWindow {
+  page: number;
+  limit: number;
+  offset: number;
+}
+
+// При равных значениях сортировки порядок фиксирует идентификатор: иначе
+// PostgreSQL может по-разному упорядочить одинаковые строки на соседних
+// страницах, и публикации будут повторяться или пропадать.
+const LATEST_FIRST: PostOrderBy = [{ publishedAt: 'desc' }, { id: 'asc' }];
 
 const POST_INCLUDE = {
   tags: { select: { title: true } },
-  _count: { select: { likes: true, comments: true } },
+  // commentsCount считает только живые комментарии.
+  _count: { select: { likes: true, comments: { where: NOT_DELETED } } },
 } as const;
 
 @Injectable()
@@ -109,7 +125,7 @@ export class PostRepository {
     }
   }
 
-  private tagsConnectOrCreate(tags: string[]) {
+  private buildTagsConnection(tags: string[]) {
     return tags.map((title) => ({
       where: { title },
       create: { title },
@@ -117,15 +133,11 @@ export class PostRepository {
   }
 
   private getOrderBy(sortBy: PostQuery['sortBy']): PostOrderBy {
-    if (sortBy === 'likes') {
-      return { likes: { _count: 'desc' } };
+    if (sortBy === PostSortBy.Likes) {
+      return [{ likes: { _count: 'desc' } }, ...LATEST_FIRST];
     }
 
-    if (sortBy === 'comments') {
-      return { comments: { _count: 'desc' } };
-    }
-
-    return { publishedAt: 'desc' };
+    return LATEST_FIRST;
   }
 
   private buildWhere(
@@ -136,7 +148,7 @@ export class PostRepository {
       authorIds?: string[];
     },
   ): PostWhere {
-    const where: PostWhere = { status: options.status };
+    const where: PostWhere = { status: options.status, ...NOT_DELETED };
 
     if (query.type) {
       where.type = query.type;
@@ -160,38 +172,140 @@ export class PostRepository {
     return where;
   }
 
+  private getPageWindow(query: PostQuery): PageWindow {
+    const limit = query.limit ?? PostListLimit.Default;
+    const page = query.page ?? Pagination.FirstPage;
+    return { page, limit, offset: (page - Pagination.FirstPage) * limit };
+  }
+
   private async findPage(
     where: PostWhere,
     query: PostQuery,
   ): Promise<PaginationResult<Post>> {
-    const limit = query.limit ?? DEFAULT_LIMIT;
-    const page = query.page ?? 1;
+    if (query.sortBy === PostSortBy.Comments) {
+      return this.findPageByCommentsCount(where, query);
+    }
 
+    const { page, limit, offset } = this.getPageWindow(query);
     const [totalItems, records] = await this.prisma.$transaction([
       this.prisma.post.count({ where }),
       this.prisma.post.findMany({
         where,
         include: POST_INCLUDE,
         orderBy: this.getOrderBy(query.sortBy),
-        skip: (page - 1) * limit,
+        skip: offset,
         take: limit,
       }),
     ]);
 
-    return {
+    return createPaginationResult({
       entities: records.map((record) =>
         this.toDomain(record as PostWithRelations),
       ),
-      totalPages: Math.ceil(totalItems / limit),
       totalItems,
       currentPage: page,
       itemsPerPage: limit,
-    };
+    });
+  }
+
+  /**
+   * Сортировка «Обсуждаемые» (§3.6) с учётом мягкого удаления. Prisma не умеет
+   * сортировать по отфильтрованному счётчику связи: `orderBy` по `_count` не
+   * принимает `where`, и удалённые комментарии продолжали бы поднимать пост.
+   * Поэтому страница собирается в две фазы:
+   *   1) посты хотя бы с одним живым комментарием — по убыванию их числа;
+   *   2) хвост из постов без живых комментариев — по дате публикации.
+   * Фильтры (статус, тип, тег, автор) переиспользуются из `buildWhere`.
+   */
+  private async findPageByCommentsCount(
+    where: PostWhere,
+    query: PostQuery,
+  ): Promise<PaginationResult<Post>> {
+    const { page, limit, offset } = this.getPageWindow(query);
+    const [totalItems, commentedCount] = await this.prisma.$transaction([
+      this.prisma.post.count({ where }),
+      this.prisma.post.count({
+        where: { ...where, comments: { some: NOT_DELETED } },
+      }),
+    ]);
+
+    const commentedIds =
+      offset < commentedCount
+        ? await this.findMostCommentedIds(where, offset, limit)
+        : [];
+    const uncommentedLimit = limit - commentedIds.length;
+    const uncommentedIds =
+      uncommentedLimit > 0
+        ? await this.findUncommentedIds(
+            where,
+            Math.max(0, offset - commentedCount),
+            uncommentedLimit,
+          )
+        : [];
+
+    return createPaginationResult({
+      entities: await this.findByIdsInOrder([
+        ...commentedIds,
+        ...uncommentedIds,
+      ]),
+      totalItems,
+      currentPage: page,
+      itemsPerPage: limit,
+    });
+  }
+
+  /** Идентификаторы постов с живыми комментариями — по убыванию их числа. */
+  private async findMostCommentedIds(
+    where: PostWhere,
+    skip: number,
+    take: number,
+  ): Promise<string[]> {
+    const groups = await this.prisma.comment.groupBy({
+      by: ['postId'],
+      where: { ...NOT_DELETED, post: { is: where } },
+      orderBy: [{ _count: { postId: 'desc' } }, { postId: 'asc' }],
+      skip,
+      take,
+    });
+    return groups.map((group) => group.postId);
+  }
+
+  /** Идентификаторы постов без живых комментариев — по дате публикации. */
+  private async findUncommentedIds(
+    where: PostWhere,
+    skip: number,
+    take: number,
+  ): Promise<string[]> {
+    const posts = await this.prisma.post.findMany({
+      where: { ...where, comments: { none: NOT_DELETED } },
+      orderBy: LATEST_FIRST,
+      skip,
+      take,
+      select: { id: true },
+    });
+    return posts.map((post) => post.id);
+  }
+
+  /** Загружает посты по идентификаторам, сохраняя порядок списка. */
+  private async findByIdsInOrder(ids: string[]): Promise<Post[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const records = await this.prisma.post.findMany({
+      where: { id: { in: ids } },
+      include: POST_INCLUDE,
+    });
+    const recordsById = new Map(records.map((record) => [record.id, record]));
+    return ids.flatMap((id) => {
+      const record = recordsById.get(id);
+      return record ? [this.toDomain(record as PostWithRelations)] : [];
+    });
   }
 
   public async findById(id: string): Promise<Post | null> {
-    const record = await this.prisma.post.findUnique({
-      where: { id },
+    const record = await this.prisma.post.findFirst({
+      where: { id, ...NOT_DELETED },
       include: POST_INCLUDE,
     });
     return record ? this.toDomain(record as PostWithRelations) : null;
@@ -204,21 +318,11 @@ export class PostRepository {
     );
   }
 
-  public async findFeed(
-    userId: string,
+  /** Опубликованные посты перечисленных авторов — основа ленты (§4). */
+  public async findPublishedByAuthors(
+    authorIds: string[],
     query: PostQuery,
   ): Promise<PaginationResult<Post>> {
-    const subscriptions = await this.prisma.subscription.findMany({
-      where: { followerId: userId },
-      select: { followingId: true },
-    });
-    const authorIds = [
-      ...new Set([
-        userId,
-        ...subscriptions.map((subscription) => subscription.followingId),
-      ]),
-    ];
-
     return this.findPage(
       this.buildWhere(query, { status: PostStatus.Published, authorIds }),
       query,
@@ -235,15 +339,27 @@ export class PostRepository {
     );
   }
 
+  /**
+   * Поиск по заголовку (§8.2): достаточно совпадения отдельных слов запроса,
+   * поэтому слова объединяются через OR. Заголовки есть только у video/text.
+   */
   public async findByTitle(title: string): Promise<Post[]> {
+    const words = title.split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      return [];
+    }
+
     const records = await this.prisma.post.findMany({
       where: {
         status: PostStatus.Published,
-        title: { contains: title, mode: 'insensitive' },
+        ...NOT_DELETED,
+        OR: words.map((word) => ({
+          title: { contains: word, mode: 'insensitive' },
+        })),
       },
       include: POST_INCLUDE,
-      orderBy: { publishedAt: 'desc' },
-      take: SEARCH_LIMIT,
+      orderBy: LATEST_FIRST,
+      take: PostListLimit.Search,
     });
     return records.map((record) => this.toDomain(record as PostWithRelations));
   }
@@ -253,7 +369,7 @@ export class PostRepository {
     authorId: string,
   ): Promise<Post | null> {
     const record = await this.prisma.post.findFirst({
-      where: { isRepost: true, originalPostId, authorId },
+      where: { isRepost: true, originalPostId, authorId, ...NOT_DELETED },
       include: POST_INCLUDE,
     });
     return record ? this.toDomain(record as PostWithRelations) : null;
@@ -268,9 +384,12 @@ export class PostRepository {
         isRepost: post.isRepost,
         originalAuthorId: post.originalAuthorId,
         originalPostId: post.originalPostId,
+        // Обе даты берутся из сервиса: при первом сохранении они равны (§2.11),
+        // а default(now()) базы дал бы createdAt на несколько миллисекунд позже.
+        createdAt: post.createdAt,
         publishedAt: post.publishedAt,
         ...this.toTypeColumns(post),
-        tags: { connectOrCreate: this.tagsConnectOrCreate(post.tags) },
+        tags: { connectOrCreate: this.buildTagsConnection(post.tags) },
       },
       include: POST_INCLUDE,
     });
@@ -284,14 +403,23 @@ export class PostRepository {
         status: post.status,
         publishedAt: post.publishedAt,
         ...this.toTypeColumns(post),
-        tags: { set: [], connectOrCreate: this.tagsConnectOrCreate(post.tags) },
+        tags: { set: [], connectOrCreate: this.buildTagsConnection(post.tags) },
       },
       include: POST_INCLUDE,
     });
     return this.toDomain(record as PostWithRelations);
   }
 
-  public async deleteById(id: string): Promise<void> {
-    await this.prisma.post.delete({ where: { id } });
+  /**
+   * Мягкое удаление: пост получает флаг isDeleted и дату удаления deletedAt
+   * и пропадает из всех выборок. Его комментарии отдельно не помечаются —
+   * они недоступны вместе с постом (§2.3), потому что любые обращения к ним
+   * идут через проверку поста.
+   */
+  public async softDeleteById(id: string): Promise<void> {
+    await this.prisma.post.update({
+      where: { id },
+      data: { isDeleted: true, deletedAt: new Date() },
+    });
   }
 }

@@ -18,9 +18,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { LikesService } from './likes.service';
-import { PostIdParamDto } from './dto/post-id-param.dto';
+import { PostIdParamDto } from '../common/dto/post-id-param.dto';
 import { LikeRdo } from './rdo/like.rdo';
 import { JwtAuthGuard } from '../common/jwt-auth.guard';
+import { CurrentUser } from '../common/current-user.decorator';
 
 @ApiTags('likes')
 @Controller('posts/:postId/likes')
@@ -31,12 +32,19 @@ export class LikesController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Поставить лайк публикации' })
-  @ApiParam({ name: 'postId', description: 'Идентификатор публикации', format: 'uuid' })
+  @ApiParam({
+    name: 'postId',
+    description: 'Идентификатор публикации',
+    format: 'uuid',
+  })
   @ApiCreatedResponse({ description: 'Лайк поставлен', type: LikeRdo })
   @ApiConflictResponse({ description: 'Лайк уже поставлен' })
   @ApiNotFoundResponse({ description: 'Публикация не найдена' })
-  public async addLike(@Param() params: PostIdParamDto) {
-    return this.likesService.addLike(params.postId);
+  public async add(
+    @Param() params: PostIdParamDto,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.likesService.add(userId, params.postId);
   }
 
   @Delete()
@@ -44,10 +52,19 @@ export class LikesController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Убрать лайк с публикации' })
-  @ApiParam({ name: 'postId', description: 'Идентификатор публикации', format: 'uuid' })
+  @ApiParam({
+    name: 'postId',
+    description: 'Идентификатор публикации',
+    format: 'uuid',
+  })
   @ApiNoContentResponse({ description: 'Лайк убран' })
-  @ApiNotFoundResponse({ description: 'Публикация не найдена' })
-  public async removeLike(@Param() params: PostIdParamDto) {
-    await this.likesService.removeLike(params.postId);
+  @ApiNotFoundResponse({
+    description: 'Публикация не найдена или лайк не был поставлен',
+  })
+  public async remove(
+    @Param() params: PostIdParamDto,
+    @CurrentUser('sub') userId: string,
+  ) {
+    await this.likesService.remove(userId, params.postId);
   }
 }

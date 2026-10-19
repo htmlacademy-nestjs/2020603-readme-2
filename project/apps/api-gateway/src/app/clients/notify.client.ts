@@ -22,7 +22,7 @@ export class NotifyClient {
   public async triggerNewsletter(): Promise<NewsletterResult> {
     const { data } = await firstValueFrom(
       this.httpService.post<NewsletterResult>(
-        `${this.config.notifyServiceUrl}/newsletters`,
+        `${this.config.notifyUrl}/newsletters`,
       ),
     );
     return data;

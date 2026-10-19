@@ -1,31 +1,18 @@
-import {
-  BadRequestException,
-  ValidationPipe,
-  type ArgumentMetadata,
-} from '@nestjs/common';
+import { BadRequestException, type ArgumentMetadata } from '@nestjs/common';
 import { PostType } from '@project/shared-types';
-import { GetCommentQueryDto } from '../../comment/dto/get-comment-query.dto';
-import { GetPostQueryDto } from './get-post-query.dto';
-import { SearchPostQueryDto } from './search-post-query.dto';
+import { createValidationPipe } from '@project/shared-config';
+import {
+  GetCommentQueryDto,
+  GetPostQueryDto,
+  SearchPostQueryDto,
+} from '@project/shared-dto';
 
 type ValidationResponse = {
   message: string[];
 };
 
 describe('Blog query DTO validation', () => {
-  const validationPipe = new ValidationPipe({
-    transform: true,
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    stopAtFirstError: false,
-    transformOptions: {
-      enableImplicitConversion: true,
-    },
-    validationError: {
-      target: false,
-      value: false,
-    },
-  });
+  const validationPipe = createValidationPipe();
 
   async function transformQuery<T extends object>(
     metatype: new () => T,

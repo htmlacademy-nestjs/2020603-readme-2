@@ -1,7 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { MailModule } from './mail/mail.module';
 import { EmailSubscriberModule } from './email-subscriber/email-subscriber.module';
@@ -29,7 +27,5 @@ import { mailConfig, validateEnv } from './config';
     NotifyPostModule,
     NewsletterModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

@@ -19,7 +19,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { fillRdo, fillRdoList } from '@project/shared-helpers';
-import { STUB_USER_ID } from '../app.constant';
+import { CurrentUserId } from '../common/current-user-id.decorator';
+import { RequireUserId } from '../common/require-user-id.decorator';
 import { FollowersCountParamDto } from './dto/followers-count-param.dto';
 import { SubscriptionParamDto } from './dto/subscription-param.dto';
 import { FollowersCountRdo } from './rdo/followers-count.rdo';
@@ -32,15 +33,14 @@ export class SubscriptionController {
   constructor(private readonly subscriptionService: SubscriptionService) {}
 
   @Get()
+  @RequireUserId()
   @ApiOperation({ summary: 'Получить подписки текущего пользователя' })
   @ApiOkResponse({
     description: 'Список подписок текущего пользователя',
     type: [SubscriptionRdo],
   })
-  public async index() {
-    const subscriptions = await this.subscriptionService.findSubscriptions(
-      STUB_USER_ID,
-    );
+  public async index(@CurrentUserId() userId: string) {
+    const subscriptions = await this.subscriptionService.findByFollower(userId);
     return fillRdoList(SubscriptionRdo, subscriptions);
   }
 
@@ -54,8 +54,10 @@ export class SubscriptionController {
     description: 'Количество подписчиков пользователя',
     type: FollowersCountRdo,
   })
-  @ApiBadRequestResponse({ description: 'Невалидный идентификатор пользователя' })
-  public async followersCount(
+  @ApiBadRequestResponse({
+    description: 'Невалидный идентификатор пользователя',
+  })
+  public async countFollowers(
     @Param() params: FollowersCountParamDto,
   ): Promise<FollowersCountRdo> {
     const count = await this.subscriptionService.countFollowers(params.userId);
@@ -63,23 +65,36 @@ export class SubscriptionController {
   }
 
   @Post(':followingId')
+  @RequireUserId()
   @ApiOperation({ summary: 'Подписаться на пользователя' })
   @ApiParam({
     name: 'followingId',
     description: 'Идентификатор пользователя, на которого оформляется подписка',
   })
-  @ApiCreatedResponse({ description: 'Подписка создана', type: SubscriptionRdo })
-  @ApiBadRequestResponse({ description: 'Невалидный идентификатор пользователя' })
-  @ApiConflictResponse({ description: 'Подписка уже существует или пользователь подписывается на себя' })
-  public async subscribe(@Param() params: SubscriptionParamDto) {
+  @ApiCreatedResponse({
+    description: 'Подписка создана',
+    type: SubscriptionRdo,
+  })
+  @ApiBadRequestResponse({
+    description: 'Невалидный идентификатор пользователя',
+  })
+  @ApiConflictResponse({
+    description:
+      'Подписка уже существует или пользователь подписывается на себя',
+  })
+  public async subscribe(
+    @CurrentUserId() userId: string,
+    @Param() params: SubscriptionParamDto,
+  ) {
     const subscription = await this.subscriptionService.subscribe(
-      STUB_USER_ID,
+      userId,
       params.followingId,
     );
     return fillRdo(SubscriptionRdo, subscription);
   }
 
   @Delete(':followingId')
+  @RequireUserId()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Отписаться от пользователя' })
   @ApiParam({
@@ -87,12 +102,14 @@ export class SubscriptionController {
     description: 'Идентификатор пользователя, от которого нужно отписаться',
   })
   @ApiNoContentResponse({ description: 'Подписка удалена' })
-  @ApiBadRequestResponse({ description: 'Невалидный идентификатор пользователя' })
+  @ApiBadRequestResponse({
+    description: 'Невалидный идентификатор пользователя',
+  })
   @ApiNotFoundResponse({ description: 'Подписка не найдена' })
-  public async unsubscribe(@Param() params: SubscriptionParamDto) {
-    await this.subscriptionService.unsubscribe(
-      STUB_USER_ID,
-      params.followingId,
-    );
+  public async unsubscribe(
+    @CurrentUserId() userId: string,
+    @Param() params: SubscriptionParamDto,
+  ) {
+    await this.subscriptionService.unsubscribe(userId, params.followingId);
   }
 }

@@ -2,7 +2,13 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import type { PaginationResult, PostType } from '@project/shared-types';
+import { USER_ID_HEADER } from '@project/shared-types';
+import type {
+  PaginationQuery,
+  PaginationResult,
+  PostQuery,
+  PostType,
+} from '@project/shared-types';
 import { servicesConfig } from '../config';
 
 export interface BlogPost {
@@ -55,15 +61,6 @@ export interface FollowersCount {
   count: number;
 }
 
-export type PostQueryParams = {
-  limit?: number;
-  page?: number;
-  sortBy?: string;
-  type?: PostType;
-  tag?: string;
-  authorId?: string;
-};
-
 @Injectable()
 export class BlogClient {
   constructor(
@@ -72,14 +69,25 @@ export class BlogClient {
     private readonly config: ConfigType<typeof servicesConfig>,
   ) {}
 
+  /**
+   * Blog не проверяет JWT: личность пользователя ему сообщает gateway
+   * заголовком `X-User-Id` после верификации токена.
+   */
+  private buildUserRequestConfig(userId: string, params?: PostQuery) {
+    return {
+      headers: { [USER_ID_HEADER]: userId },
+      ...(params ? { params } : {}),
+    };
+  }
+
   // --- Posts ---
 
   public async getPosts(
-    params: PostQueryParams,
+    params: PostQuery,
   ): Promise<PaginationResult<BlogPost>> {
     const { data } = await firstValueFrom(
       this.httpService.get<PaginationResult<BlogPost>>(
-        `${this.config.blogServiceUrl}/posts`,
+        `${this.config.blogUrl}/posts`,
         { params },
       ),
     );
@@ -87,24 +95,26 @@ export class BlogClient {
   }
 
   public async getFeed(
-    params: PostQueryParams,
+    userId: string,
+    params: PostQuery,
   ): Promise<PaginationResult<BlogPost>> {
     const { data } = await firstValueFrom(
       this.httpService.get<PaginationResult<BlogPost>>(
-        `${this.config.blogServiceUrl}/posts/feed`,
-        { params },
+        `${this.config.blogUrl}/posts/feed`,
+        this.buildUserRequestConfig(userId, params),
       ),
     );
     return data;
   }
 
   public async getDrafts(
-    params: PostQueryParams,
+    userId: string,
+    params: PostQuery,
   ): Promise<PaginationResult<BlogPost>> {
     const { data } = await firstValueFrom(
       this.httpService.get<PaginationResult<BlogPost>>(
-        `${this.config.blogServiceUrl}/posts/drafts`,
-        { params },
+        `${this.config.blogUrl}/posts/drafts`,
+        this.buildUserRequestConfig(userId, params),
       ),
     );
     return data;
@@ -112,73 +122,68 @@ export class BlogClient {
 
   public async searchPosts(title: string): Promise<BlogPost[]> {
     const { data } = await firstValueFrom(
-      this.httpService.get<BlogPost[]>(
-        `${this.config.blogServiceUrl}/posts/search`,
-        { params: { title } },
-      ),
+      this.httpService.get<BlogPost[]>(`${this.config.blogUrl}/posts/search`, {
+        params: { title },
+      }),
     );
     return data;
   }
 
-  public async getPost(id: string): Promise<BlogPost> {
+  public async getPost(id: string, userId?: string): Promise<BlogPost> {
     const { data } = await firstValueFrom(
       this.httpService.get<BlogPost>(
-        `${this.config.blogServiceUrl}/posts/${id}`,
+        `${this.config.blogUrl}/posts/${id}`,
+        userId ? this.buildUserRequestConfig(userId) : undefined,
       ),
     );
     return data;
   }
 
   public async createPost(
+    userId: string,
     type: PostType,
     body: Record<string, unknown>,
   ): Promise<BlogPost> {
     const { data } = await firstValueFrom(
       this.httpService.post<BlogPost>(
-        `${this.config.blogServiceUrl}/posts/${type.toLowerCase()}`,
+        `${this.config.blogUrl}/posts/${type}`,
         body,
-      ),
-    );
-    return data;
-  }
-
-  public async createPhotoPost(body: {
-    type: PostType;
-    photoUrl: string;
-    tags?: string[];
-  }): Promise<BlogPost> {
-    const { data } = await firstValueFrom(
-      this.httpService.post<BlogPost>(
-        `${this.config.blogServiceUrl}/posts/photo`,
-        body,
+        this.buildUserRequestConfig(userId),
       ),
     );
     return data;
   }
 
   public async updatePost(
+    userId: string,
     id: string,
     body: Record<string, unknown>,
   ): Promise<BlogPost> {
     const { data } = await firstValueFrom(
       this.httpService.patch<BlogPost>(
-        `${this.config.blogServiceUrl}/posts/${id}`,
+        `${this.config.blogUrl}/posts/${id}`,
         body,
+        this.buildUserRequestConfig(userId),
       ),
     );
     return data;
   }
 
-  public async deletePost(id: string): Promise<void> {
+  public async deletePost(userId: string, id: string): Promise<void> {
     await firstValueFrom(
-      this.httpService.delete(`${this.config.blogServiceUrl}/posts/${id}`),
+      this.httpService.delete(
+        `${this.config.blogUrl}/posts/${id}`,
+        this.buildUserRequestConfig(userId),
+      ),
     );
   }
 
-  public async repost(id: string): Promise<BlogPost> {
+  public async repost(userId: string, id: string): Promise<BlogPost> {
     const { data } = await firstValueFrom(
       this.httpService.post<BlogPost>(
-        `${this.config.blogServiceUrl}/posts/${id}/repost`,
+        `${this.config.blogUrl}/posts/${id}/repost`,
+        undefined,
+        this.buildUserRequestConfig(userId),
       ),
     );
     return data;
@@ -188,11 +193,11 @@ export class BlogClient {
 
   public async getComments(
     postId: string,
-    params: { limit?: number; page?: number },
+    params: PaginationQuery,
   ): Promise<PaginationResult<BlogComment>> {
     const { data } = await firstValueFrom(
       this.httpService.get<PaginationResult<BlogComment>>(
-        `${this.config.blogServiceUrl}/posts/${postId}/comments`,
+        `${this.config.blogUrl}/posts/${postId}/comments`,
         { params },
       ),
     );
@@ -200,72 +205,86 @@ export class BlogClient {
   }
 
   public async createComment(
+    userId: string,
     postId: string,
     body: { text: string },
   ): Promise<BlogComment> {
     const { data } = await firstValueFrom(
       this.httpService.post<BlogComment>(
-        `${this.config.blogServiceUrl}/posts/${postId}/comments`,
+        `${this.config.blogUrl}/posts/${postId}/comments`,
         body,
+        this.buildUserRequestConfig(userId),
       ),
     );
     return data;
   }
 
   public async deleteComment(
+    userId: string,
     postId: string,
     commentId: string,
   ): Promise<void> {
     await firstValueFrom(
       this.httpService.delete(
-        `${this.config.blogServiceUrl}/posts/${postId}/comments/${commentId}`,
+        `${this.config.blogUrl}/posts/${postId}/comments/${commentId}`,
+        this.buildUserRequestConfig(userId),
       ),
     );
   }
 
   // --- Likes ---
 
-  public async addLike(postId: string): Promise<BlogLike> {
+  public async addLike(userId: string, postId: string): Promise<BlogLike> {
     const { data } = await firstValueFrom(
       this.httpService.post<BlogLike>(
-        `${this.config.blogServiceUrl}/posts/${postId}/likes`,
+        `${this.config.blogUrl}/posts/${postId}/likes`,
+        undefined,
+        this.buildUserRequestConfig(userId),
       ),
     );
     return data;
   }
 
-  public async removeLike(postId: string): Promise<void> {
+  public async removeLike(userId: string, postId: string): Promise<void> {
     await firstValueFrom(
       this.httpService.delete(
-        `${this.config.blogServiceUrl}/posts/${postId}/likes`,
+        `${this.config.blogUrl}/posts/${postId}/likes`,
+        this.buildUserRequestConfig(userId),
       ),
     );
   }
 
   // --- Subscriptions ---
 
-  public async getSubscriptions(): Promise<BlogSubscription[]> {
+  public async getSubscriptions(userId: string): Promise<BlogSubscription[]> {
     const { data } = await firstValueFrom(
       this.httpService.get<BlogSubscription[]>(
-        `${this.config.blogServiceUrl}/subscriptions`,
+        `${this.config.blogUrl}/subscriptions`,
+        this.buildUserRequestConfig(userId),
       ),
     );
     return data;
   }
 
-  public async subscribe(followingId: string): Promise<BlogSubscription> {
+  public async subscribe(
+    userId: string,
+    followingId: string,
+  ): Promise<BlogSubscription> {
     const { data } = await firstValueFrom(
       this.httpService.post<BlogSubscription>(
-        `${this.config.blogServiceUrl}/subscriptions/${followingId}`,
+        `${this.config.blogUrl}/subscriptions/${followingId}`,
+        undefined,
+        this.buildUserRequestConfig(userId),
       ),
     );
     return data;
   }
 
-  public async unsubscribe(followingId: string): Promise<void> {
+  public async unsubscribe(userId: string, followingId: string): Promise<void> {
     await firstValueFrom(
       this.httpService.delete(
-        `${this.config.blogServiceUrl}/subscriptions/${followingId}`,
+        `${this.config.blogUrl}/subscriptions/${followingId}`,
+        this.buildUserRequestConfig(userId),
       ),
     );
   }
@@ -273,7 +292,7 @@ export class BlogClient {
   public async getFollowersCount(userId: string): Promise<FollowersCount> {
     const { data } = await firstValueFrom(
       this.httpService.get<FollowersCount>(
-        `${this.config.blogServiceUrl}/subscriptions/followers/${userId}/count`,
+        `${this.config.blogUrl}/subscriptions/followers/${userId}/count`,
       ),
     );
     return data;

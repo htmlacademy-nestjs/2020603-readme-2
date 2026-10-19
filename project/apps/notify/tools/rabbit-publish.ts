@@ -3,60 +3,72 @@
  * сервисов `users`/`blog`. Конверт `{ pattern, data }` — формат, который ожидает
  * транспорт RabbitMQ из @nestjs/microservices для событий (ClientProxy.emit).
  *
- * Запуск (из каталога project/):  tsx apps/notify/tools/rabbit-publish.ts
+ * Запуск (из каталога project/):
+ *   npx tsx --tsconfig tsconfig.scripts.json apps/notify/tools/rabbit-publish.ts
  */
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config as loadEnv } from 'dotenv';
 import { connect } from 'amqplib';
+import { rabbitmqConfig } from '@project/shared-config';
+import { getRabbitmqConnectionString } from '@project/shared-helpers';
+import { PostType, RabbitRouting } from '@project/shared-types';
+import type {
+  PostPublishedEvent,
+  UserRegisteredEvent,
+} from '@project/shared-types';
 
 loadEnv({ path: path.join(import.meta.dirname, '..', '.env') });
 
-const {
-  RABBITMQ_USER,
-  RABBITMQ_PASSWORD,
-  RABBITMQ_HOST,
-  RABBITMQ_PORT,
-  RABBITMQ_QUEUE,
-} = process.env;
-
-const url = `amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@${RABBITMQ_HOST}:${RABBITMQ_PORT}`;
-const queue = RABBITMQ_QUEUE ?? 'readme.notify.income';
-
-function event(pattern: string, data: unknown): Buffer {
+function createMessage(pattern: RabbitRouting, data: unknown): Buffer {
   return Buffer.from(JSON.stringify({ pattern, data }));
 }
 
 async function main(): Promise<void> {
-  const connection = await connect(url);
+  const config = rabbitmqConfig();
+  const connection = await connect(getRabbitmqConnectionString(config));
   const channel = await connection.createChannel();
-  await channel.assertQueue(queue, { durable: true });
+  await channel.assertQueue(config.queue, { durable: true });
 
-  const subscriber = {
+  const subscriber: UserRegisteredEvent = {
     userId: randomUUID(),
     email: `demo-${Date.now()}@example.com`,
     name: 'Демо Подписчик',
   };
-  channel.sendToQueue(queue, event('add.subscriber', subscriber));
+  channel.sendToQueue(
+    config.queue,
+    createMessage(RabbitRouting.UserRegistered, subscriber),
+  );
 
-  const post = {
+  const post: PostPublishedEvent = {
     postId: randomUUID(),
     title: 'Тестовая публикация для рассылки',
-    type: 'text',
+    type: PostType.Text,
     authorId: randomUUID(),
-    publishedAt: new Date().toISOString(),
+    publishedAt: new Date(),
   };
-  channel.sendToQueue(queue, event('add.post', post));
+  channel.sendToQueue(
+    config.queue,
+    createMessage(RabbitRouting.PostPublished, post),
+  );
 
-  console.log('Published events to queue:', queue);
-  console.log('  add.subscriber:', subscriber.email);
-  console.log('  add.post:', post.postId);
+  console.log('Published events to queue:', config.queue);
+  console.log(`  ${RabbitRouting.UserRegistered}:`, subscriber.email);
+  console.log(`  ${RabbitRouting.PostPublished}:`, post.postId);
 
   await channel.close();
   await connection.close();
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+// tsx исполняет скрипт как CommonJS (в apps/notify/package.json нет "type": "module"),
+// поэтому await верхнего уровня недоступен — запуск идёт через функцию.
+async function run(): Promise<void> {
+  try {
+    await main();
+  } catch (error) {
+    console.error(error);
+    process.exitCode = 1;
+  }
+}
+
+void run();

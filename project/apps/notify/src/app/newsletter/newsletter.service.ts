@@ -22,13 +22,13 @@ export class NewsletterService {
 
   /** §7.5: запуск рассылки дайджеста по запросу пользователя. */
   public async dispatch(): Promise<NewsletterResult> {
-    const posts = await this.notifyPostService.getPendingPosts();
+    const posts = await this.notifyPostService.getPending();
     if (posts.length === 0) {
       this.logger.log('No new posts — newsletter skipped');
       return { posts: 0, recipients: 0, sent: 0, failed: 0 };
     }
 
-    const subscribers = await this.emailSubscriberService.getAllSubscribers();
+    const subscribers = await this.emailSubscriberService.getAll();
 
     const results = await Promise.allSettled(
       subscribers.map((subscriber) =>

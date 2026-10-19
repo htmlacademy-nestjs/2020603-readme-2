@@ -9,10 +9,19 @@ import { SubscriptionRepository } from './subscription.repository';
 
 @Injectable()
 export class SubscriptionService {
-  constructor(private readonly subscriptionRepository: SubscriptionRepository) {}
+  constructor(
+    private readonly subscriptionRepository: SubscriptionRepository,
+  ) {}
 
-  public async findSubscriptions(followerId: string): Promise<Subscription[]> {
+  public async findByFollower(followerId: string): Promise<Subscription[]> {
     return this.subscriptionRepository.findByFollower(followerId);
+  }
+
+  /** Идентификаторы авторов, на которых подписан пользователь (§4.2). */
+  public async findFollowingIds(followerId: string): Promise<string[]> {
+    const subscriptions =
+      await this.subscriptionRepository.findByFollower(followerId);
+    return subscriptions.map((subscription) => subscription.followingId);
   }
 
   public async countFollowers(followingId: string): Promise<number> {
@@ -27,10 +36,11 @@ export class SubscriptionService {
       throw new SelfSubscriptionError();
     }
 
-    const existing = await this.subscriptionRepository.findByFollowerAndFollowing(
-      followerId,
-      followingId,
-    );
+    const existing =
+      await this.subscriptionRepository.findByFollowerAndFollowing(
+        followerId,
+        followingId,
+      );
     if (existing) {
       throw new SubscriptionAlreadyExistsError(followingId);
     }
@@ -42,10 +52,11 @@ export class SubscriptionService {
     followerId: string,
     followingId: string,
   ): Promise<void> {
-    const existing = await this.subscriptionRepository.findByFollowerAndFollowing(
-      followerId,
-      followingId,
-    );
+    const existing =
+      await this.subscriptionRepository.findByFollowerAndFollowing(
+        followerId,
+        followingId,
+      );
     if (!existing) {
       throw new SubscriptionNotFoundError(followingId);
     }

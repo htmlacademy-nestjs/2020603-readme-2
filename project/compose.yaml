@@ -1,0 +1,174 @@
+# Весь проект в Docker: инфраструктура и пять сервисов. Node.js, PostgreSQL и
+# RabbitMQ на компьютере не нужны. Запуск из каталога project/:
+#   docker compose up -d --build --wait
+# Настройки сервисов берутся из apps/<app>/.env.example, здесь переопределены
+# только адреса соседних контейнеров. Порты на компьютере: 3001–3005 (сервисы),
+# 8025 (Mailpit), 15672 (RabbitMQ).
+name: readme
+
+x-app: &app
+  build: .
+  image: readme-app
+  restart: unless-stopped
+  healthcheck:
+    test:
+      - CMD
+      - node
+      - -e
+      - "fetch('http://127.0.0.1:' + process.env.APPLICATION_PORT + '/spec').then((res) => process.exit(res.ok ? 0 : 1), () => process.exit(1))"
+    interval: 5s
+    timeout: 5s
+    retries: 60
+
+x-postgres: &postgres
+  image: postgres:18
+  restart: unless-stopped
+  healthcheck:
+    test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+    interval: 3s
+    timeout: 5s
+    retries: 20
+
+services:
+  users-db:
+    <<: *postgres
+    env_file: apps/users/.env.example
+    volumes:
+      - users-db:/var/lib/postgresql
+
+  blog-db:
+    <<: *postgres
+    env_file: apps/blog/.env.example
+    volumes:
+      - blog-db:/var/lib/postgresql
+
+  notify-db:
+    <<: *postgres
+    env_file: apps/notify/.env.example
+    volumes:
+      - notify-db:/var/lib/postgresql
+
+  file-storage-db:
+    <<: *postgres
+    env_file: apps/file-storage/.env.example
+    volumes:
+      - file-storage-db:/var/lib/postgresql
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    restart: unless-stopped
+    env_file: apps/notify/.env.example
+    ports:
+      - '15672:15672'
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - '8025:8025'
+
+  users:
+    <<: *app
+    command: users
+    env_file: apps/users/.env.example
+    environment:
+      POSTGRES_HOST: users-db
+      POSTGRES_PORT: 5432
+      RABBITMQ_HOST: rabbitmq
+    ports:
+      - '3001:3001'
+    volumes:
+      - seed-state:/app/state
+    depends_on:
+      users-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  blog:
+    <<: *app
+    command: blog
+    env_file: apps/blog/.env.example
+    environment:
+      POSTGRES_HOST: blog-db
+      POSTGRES_PORT: 5432
+      RABBITMQ_HOST: rabbitmq
+    ports:
+      - '3002:3002'
+    volumes:
+      - seed-state:/app/state
+    depends_on:
+      blog-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  notify:
+    <<: *app
+    command: notify
+    env_file: apps/notify/.env.example
+    environment:
+      POSTGRES_HOST: notify-db
+      POSTGRES_PORT: 5432
+      RABBITMQ_HOST: rabbitmq
+      MAIL_SMTP_HOST: mailpit
+    ports:
+      - '3003:3003'
+    volumes:
+      - seed-state:/app/state
+    depends_on:
+      notify-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+
+  file-storage:
+    <<: *app
+    command: file-storage
+    env_file: apps/file-storage/.env.example
+    environment:
+      POSTGRES_HOST: file-storage-db
+      POSTGRES_PORT: 5432
+    ports:
+      - '3004:3004'
+    volumes:
+      - uploads:/app/apps/file-storage/uploads
+    depends_on:
+      file-storage-db:
+        condition: service_healthy
+
+  api-gateway:
+    <<: *app
+    command: api-gateway
+    env_file: apps/api-gateway/.env.example
+    environment:
+      USERS_SERVICE_URL: http://users:3001/api
+      BLOG_SERVICE_URL: http://blog:3002/api
+      FILE_STORAGE_SERVICE_URL: http://file-storage:3004/api
+      NOTIFY_SERVICE_URL: http://notify:3003/api
+    ports:
+      - '3005:3005'
+    depends_on:
+      users:
+        condition: service_healthy
+      blog:
+        condition: service_healthy
+      notify:
+        condition: service_healthy
+      file-storage:
+        condition: service_healthy
+
+volumes:
+  users-db:
+  blog-db:
+  notify-db:
+  file-storage-db:
+  uploads:
+  seed-state:

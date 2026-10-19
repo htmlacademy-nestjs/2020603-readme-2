@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
+import { isUUID } from 'class-validator';
 import { firstValueFrom } from 'rxjs';
 import { servicesConfig } from '../config';
 
@@ -10,8 +11,6 @@ export interface UserResponse {
   name: string;
   avatarUrl?: string;
   createdAt: string;
-  postsCount: number;
-  subscribersCount: number;
 }
 
 export interface LoginResponse {
@@ -28,8 +27,7 @@ export interface UserInfo {
   avatarUrl?: string;
 }
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export type WithAuthor<T> = T & { author: UserInfo | null };
 
 @Injectable()
 export class UsersClient {
@@ -47,7 +45,7 @@ export class UsersClient {
   }): Promise<UserResponse> {
     const { data: body } = await firstValueFrom(
       this.httpService.post<UserResponse>(
-        `${this.config.usersServiceUrl}/auth/register`,
+        `${this.config.usersUrl}/auth/register`,
         data,
       ),
     );
@@ -60,18 +58,26 @@ export class UsersClient {
   }): Promise<LoginResponse> {
     const { data: body } = await firstValueFrom(
       this.httpService.post<LoginResponse>(
-        `${this.config.usersServiceUrl}/auth/login`,
+        `${this.config.usersUrl}/auth/login`,
         data,
       ),
     );
     return body;
   }
 
-  public async getUser(id: string): Promise<UserResponse> {
+  public async refresh(data: { refreshToken: string }): Promise<LoginResponse> {
     const { data: body } = await firstValueFrom(
-      this.httpService.get<UserResponse>(
-        `${this.config.usersServiceUrl}/auth/${id}`,
+      this.httpService.post<LoginResponse>(
+        `${this.config.usersUrl}/auth/refresh`,
+        data,
       ),
+    );
+    return body;
+  }
+
+  public async getById(id: string): Promise<UserResponse> {
+    const { data: body } = await firstValueFrom(
+      this.httpService.get<UserResponse>(`${this.config.usersUrl}/users/${id}`),
     );
     return body;
   }
@@ -82,38 +88,50 @@ export class UsersClient {
   ): Promise<UserResponse> {
     const { data: body } = await firstValueFrom(
       this.httpService.patch<UserResponse>(
-        `${this.config.usersServiceUrl}/auth/${id}/password`,
+        `${this.config.usersUrl}/auth/${id}/password`,
         data,
       ),
     );
     return body;
   }
 
-  public async getUserInfoMap(
+  /** Карточки пользователей по идентификаторам; повторы запрашиваются один раз. */
+  public async getInfoMap(
     ids: string[],
   ): Promise<Map<string, UserInfo | null>> {
-    const uniqueIds = [...new Set(ids)];
     const entries = await Promise.all(
-      uniqueIds.map(async (id) => {
-        if (!UUID_RE.test(id)) {
-          return [id, null] as const;
-        }
-        try {
-          const user = await this.getUser(id);
-          return [
-            id,
-            {
-              id: user.id,
-              name: user.name,
-              email: user.email,
-              avatarUrl: user.avatarUrl,
-            },
-          ] as const;
-        } catch {
-          return [id, null] as const;
-        }
-      }),
+      [...new Set(ids)].map(
+        async (id) => [id, await this.findInfo(id)] as const,
+      ),
     );
     return new Map(entries);
+  }
+
+  /** Добавляет к каждой записи карточку её автора (§3.7, §3.10). */
+  public async attachAuthors<T extends { authorId: string }>(
+    items: T[],
+  ): Promise<WithAuthor<T>[]> {
+    const authors = await this.getInfoMap(items.map((item) => item.authorId));
+    return items.map((item) => ({
+      ...item,
+      author: authors.get(item.authorId) ?? null,
+    }));
+  }
+
+  /**
+   * Карточка пользователя или null: ошибка users и идентификатор не в формате
+   * UUID (users ответил бы 400) не должны ломать ответ со списком.
+   */
+  private async findInfo(id: string): Promise<UserInfo | null> {
+    if (!isUUID(id)) {
+      return null;
+    }
+
+    try {
+      const { name, email, avatarUrl } = await this.getById(id);
+      return { id, name, email, avatarUrl };
+    } catch {
+      return null;
+    }
   }
 }

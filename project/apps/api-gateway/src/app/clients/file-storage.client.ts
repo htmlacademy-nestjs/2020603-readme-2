@@ -14,6 +14,14 @@ export interface StoredFileResponse {
   url: string;
 }
 
+// Маршруты загрузки file-storage: у аватара и фото разные лимиты размера.
+const UploadRoute = {
+  Avatar: 'avatar',
+  Photo: 'photo',
+} as const;
+
+type UploadRoute = (typeof UploadRoute)[keyof typeof UploadRoute];
+
 @Injectable()
 export class FileStorageClient {
   constructor(
@@ -25,29 +33,25 @@ export class FileStorageClient {
   public async uploadAvatar(
     file: Express.Multer.File,
   ): Promise<StoredFileResponse> {
-    return this.uploadFile(file, 'avatar');
+    return this.upload(file, UploadRoute.Avatar);
   }
 
   public async uploadPhoto(
     file: Express.Multer.File,
   ): Promise<StoredFileResponse> {
-    return this.uploadFile(file, 'photo');
+    return this.upload(file, UploadRoute.Photo);
   }
 
-  private async uploadFile(
+  private async upload(
     file: Express.Multer.File,
-    kind: 'avatar' | 'photo',
+    route: UploadRoute,
   ): Promise<StoredFileResponse> {
     const formData = new FormData();
-    formData.append(
-      'file',
-      new Blob([file.buffer]),
-      file.originalname,
-    );
+    formData.append('file', new Blob([file.buffer]), file.originalname);
 
     const { data } = await firstValueFrom(
       this.httpService.post<StoredFileResponse>(
-        `${this.config.fileStorageServiceUrl}/files/${kind}`,
+        `${this.config.fileStorageUrl}/files/${route}`,
         formData,
       ),
     );

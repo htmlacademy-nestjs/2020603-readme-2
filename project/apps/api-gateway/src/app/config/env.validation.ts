@@ -1,64 +1,43 @@
+import { IsInt, IsString, IsUrl, Min, MinLength } from 'class-validator';
 import {
-  IsEnum,
-  IsInt,
-  IsString,
-  IsUrl,
-  Max,
-  Min,
-  MinLength,
-} from 'class-validator';
-import { Environment, validateEnvironment } from '@project/shared-config';
+  BaseEnvironment,
+  JWT_SECRET_MIN_LENGTH,
+  validateEnvironment,
+} from '@project/shared-config';
 
-export class EnvironmentVariables {
-  @IsEnum(Environment)
-  public APPLICATION_NODE_ENV: Environment = Environment.Development;
+// require_tld: false + require_protocol: true — пропускают localhost-URL сервисов.
+const SERVICE_URL_OPTIONS: Parameters<typeof IsUrl>[0] = {
+  protocols: ['http', 'https'],
+  require_protocol: true,
+  require_tld: false,
+};
 
-  // Явный тип `: number` обязателен: под SWC он задаёт design:type = Number,
-  // чтобы enableImplicitConversion привёл строку из .env к числу (см. AGENTS.md → Gotchas).
-  // eslint-disable-next-line @typescript-eslint/no-inferrable-types
-  @IsInt()
-  @Min(0)
-  @Max(65535)
-  public APPLICATION_PORT: number = 3005;
+const DEFAULT_HTTP_CLIENT_TIMEOUT = 5000;
+const MIN_HTTP_CLIENT_TIMEOUT = 0;
 
+export class EnvironmentVariables extends BaseEnvironment {
   // Секрет доступа дублируется из users: gateway проверяет JWT локально.
   @IsString()
-  @MinLength(32)
+  @MinLength(JWT_SECRET_MIN_LENGTH)
   public JWT_ACCESS_TOKEN_SECRET!: string;
 
-  // require_tld: false + require_protocol: true — пропускают localhost-URL сервисов.
-  @IsUrl({
-    protocols: ['http', 'https'],
-    require_protocol: true,
-    require_tld: false,
-  })
+  @IsUrl(SERVICE_URL_OPTIONS)
   public USERS_SERVICE_URL!: string;
 
-  @IsUrl({
-    protocols: ['http', 'https'],
-    require_protocol: true,
-    require_tld: false,
-  })
+  @IsUrl(SERVICE_URL_OPTIONS)
   public BLOG_SERVICE_URL!: string;
 
-  @IsUrl({
-    protocols: ['http', 'https'],
-    require_protocol: true,
-    require_tld: false,
-  })
+  @IsUrl(SERVICE_URL_OPTIONS)
   public FILE_STORAGE_SERVICE_URL!: string;
 
-  @IsUrl({
-    protocols: ['http', 'https'],
-    require_protocol: true,
-    require_tld: false,
-  })
+  @IsUrl(SERVICE_URL_OPTIONS)
   public NOTIFY_SERVICE_URL!: string;
 
-  // eslint-disable-next-line @typescript-eslint/no-inferrable-types
+  // Явный тип `: number` обязателен: он задаёт design:type = Number для
+  // приведения строки из .env к числу.
   @IsInt()
-  @Min(0)
-  public HTTP_CLIENT_TIMEOUT: number = 5000;
+  @Min(MIN_HTTP_CLIENT_TIMEOUT)
+  public HTTP_CLIENT_TIMEOUT: number = DEFAULT_HTTP_CLIENT_TIMEOUT;
 }
 
 export function validateEnv(

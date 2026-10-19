@@ -10,7 +10,9 @@ export class SubscriptionRdo {
   @Expose()
   public followerId!: string;
 
-  @ApiProperty({ description: 'Идентификатор пользователя, на которого подписались' })
+  @ApiProperty({
+    description: 'Идентификатор пользователя, на которого подписались',
+  })
   @Expose()
   public followingId!: string;
 
